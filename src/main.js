@@ -16,6 +16,7 @@ import Emp from "./system/emp/EmpAdd.vue";
 import Home from "./Home.vue";
 import Login from "./Login.vue";
 import Position from "./system/Position.vue";
+import Product from "./product/product.vue";
 
 // require('./mock.js');
 
@@ -30,6 +31,7 @@ const routes = [
       { path: '/dept', component: Dept },
       { path: '/empAdd', component: Emp },
       { path: '/position', component: Position },
+      { path: '/product', component: Product },
     ]
   },
   {
