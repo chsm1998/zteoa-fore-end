@@ -31,9 +31,11 @@
                 </el-table-column>
                 <el-table-column fixed="right" label="操作">
                     <template slot-scope="ProductCategory">
-                        <el-button @click="showProductCategory(ProductCategory.row)" type="text" size="small">查看</el-button>
-                        <el-button @click="updateProductCategory(ProductCategory.row)" type="text" size="small">修改</el-button>
-                        <el-button @click="deleteProductCategory(ProductCategory)" type="text" size="small">删除</el-button>
+                        <el-button-group>
+                            <el-button size="small" @click="showProductCategory(ProductCategory.row)" icon="el-icon-search"></el-button>
+                            <el-button size="small" @click="updateProductCategory(ProductCategory.row)" type="primary" icon="el-icon-edit"></el-button>
+                            <el-button size="small" @click="deleteProductCategory(ProductCategory)" type="danger" icon="el-icon-delete"></el-button>
+                        </el-button-group>
                     </template>
                 </el-table-column>
             </el-table>

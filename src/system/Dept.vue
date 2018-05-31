@@ -31,9 +31,11 @@
                 </el-table-column>
                 <el-table-column fixed="right" label="操作">
                     <template slot-scope="Dept">
-                        <el-button @click="showDept(Dept.row)" type="text" size="small">查看</el-button>
-                        <el-button @click="updateDept(Dept.row)" type="text" size="small">修改</el-button>
-                        <el-button @click="deleteDept(Dept)" type="text" size="small">删除</el-button>
+                        <el-button-group>
+                            <el-button size="small" @click="showDept(Dept.row)" icon="el-icon-search"></el-button>
+                            <el-button size="small" @click="updateDept(Dept.row)" type="primary" icon="el-icon-edit"></el-button>
+                            <el-button size="small" @click="deleteDept(Dept)" type="danger" icon="el-icon-delete"></el-button>
+                        </el-button-group>
                     </template>
                 </el-table-column>
             </el-table>

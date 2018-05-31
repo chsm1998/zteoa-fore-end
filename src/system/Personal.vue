@@ -33,9 +33,11 @@
                 </el-table-column>
                 <el-table-column fixed="right" label="操作">
                     <template slot-scope="emp">
-                        <el-button @click="showEmp(emp.row)" type="text" size="small">查看</el-button>
-                        <el-button @click="updateEmp(emp.row)" type="text" size="small">修改</el-button>
-                        <el-button @click="deleteEmp(emp)" type="text" size="small">删除</el-button>
+                        <el-button-group>
+                            <el-button size="small" @click="showEmp(emp.row)" icon="el-icon-search"></el-button>
+                            <el-button size="small" @click="updateEmp(emp.row)" type="primary" icon="el-icon-edit"></el-button>
+                            <el-button size="small" @click="deleteEmp(emp)" type="danger" icon="el-icon-delete"></el-button>
+                        </el-button-group>
                     </template>
                 </el-table-column>
             </el-table>

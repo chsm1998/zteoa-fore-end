@@ -18,6 +18,7 @@ import Login from "./Login.vue";
 import Position from "./system/Position.vue";
 import Product from "./product/product.vue";
 import ProductCategory from "./product/productCategory.vue";
+import Boardroom from "./metting/MettingRoom.vue";
 
 // require('./mock.js');
 
@@ -33,7 +34,8 @@ const routes = [
       { path: '/empAdd', component: Emp },
       { path: '/position', component: Position },
       { path: '/product', component: Product },
-      { path: '/ProductCategory', component: ProductCategory },
+      { path: '/productCategory', component: ProductCategory },
+      { path: '/boardroom', component: Boardroom },
     ]
   },
   {

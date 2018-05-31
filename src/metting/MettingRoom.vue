@@ -1,39 +1,37 @@
 <template>
     <div>
         <el-row>
-            <el-col :offset="4" :span="10" class="search">
+            <el-col :offset="6" :span="8" class="search">
                 <el-autocomplete @select="handleSelect" v-model="search" :select-when-unmatched="true" value-key="name" :fetch-suggestions="querySearch"
-                    prefix-icon="el-icon-search" placeholder="请输入商品名称" clearable>
-                    <el-select class="wid" :clearable="true" :remote="true" @change="categoryChange" @focus="getCategorys" v-model="category.id" slot="prepend" placeholder="职位选择">
-                        <el-option v-for="item in categorys" :key="item.id" :label="item.category" :value="item.id"></el-option>
-                    </el-select>
+                    prefix-icon="el-icon-search" placeholder="请输入会议室名称" clearable>
                     <template slot="append">
                         <el-button @click="handleSelect" icon="el-icon-search">搜索</el-button>
                     </template>
                 </el-autocomplete>
             </el-col>
             <el-col :offset="6" :span="4" class="add">
-                <el-button @click="addProduct" type="primary" icon="el-icon-circle-plus">用品采购</el-button>
+                <el-button @click="addBoardroom" type="primary" icon="el-icon-circle-plus">添加会议室</el-button>
             </el-col>
         </el-row>
         <el-row>
             <el-table v-loading="load" :data="tableData" max-height="400" style="width: 100%">
-                <el-table-column align="center" prop="id" label="用品编号">
+                <el-table-column align="center" prop="id" label="会议室编号">
                 </el-table-column>
-                <el-table-column align="center" prop="name" label="用品名称">
+                <el-table-column align="center" prop="name" label="会议室名称">
                 </el-table-column>
-                <el-table-column align="center" prop="category.category" label="用品类别">
+                <el-table-column align="center" prop="address" label="会议室地址">
                 </el-table-column>
-                <el-table-column align="center" prop="price" label="用品单价">
-                </el-table-column>
-                <el-table-column align="center" prop="num" label="用品库存">
+                <el-table-column align="center" label="是否可用">
+                    <template slot-scope="scope">
+                        <span>{{ scope.row.use ? '可用' : '不可用' }}</span>
+                    </template>
                 </el-table-column>
                 <el-table-column fixed="right" label="操作">
-                    <template slot-scope="Product">
+                    <template slot-scope="Boardroom">
                         <el-button-group>
-                            <el-button size="small" @click="showProduct(Product.row)" icon="el-icon-search"></el-button>
-                            <el-button size="small" @click="updateProduct(Product.row)" type="primary" icon="el-icon-edit"></el-button>
-                            <el-button size="small" @click="deleteProduct(Product)" type="danger" icon="el-icon-delete"></el-button>
+                            <el-button size="small" @click="showBoardroom(Boardroom.row)" icon="el-icon-search" ></el-button>
+                            <el-button size="small" @click="updateBoardroom(Boardroom.row)" type="primary" icon="el-icon-edit" ></el-button>
+                            <el-button size="small" @click="deleteBoardroom(Boardroom)" type="danger" icon="el-icon-delete" ></el-button>
                         </el-button-group>
                     </template>
                 </el-table-column>
@@ -44,66 +42,58 @@
                 :page-size="pageSize" layout="total, sizes, prev, pager, next, jumper" :total="total">
             </el-pagination>
         </div>
-        <el-dialog title="用品信息" :visible.sync="show" :center="true">
+        <el-dialog title="会议室信息" :visible.sync="show" :center="true">
             <el-form inline class="demo-table-expand">
-                <el-form-item label="用品编号">
-                    <span>{{ product.id }}</span>
+                <el-form-item label="会议室编号">
+                    <span>{{ boardroom.id }}</span>
                 </el-form-item>
-                <el-form-item label="用品名称">
-                    <span>{{ product.name }}</span>
+                <el-form-item label="会议室名称">
+                    <span>{{ boardroom.name }}</span>
                 </el-form-item>
-                <el-form-item label="用品类别">
-                    <span>{{ product.category.category }}</span>
+                <el-form-item label="会议室地址">
+                    <span>{{ boardroom.address }}</span>
                 </el-form-item>
-                <el-form-item label="用品单价">
-                    <span>{{ product.price }}</span>
-                </el-form-item>
-                <el-form-item label="用品库存">
-                    <span>{{ product.num }}</span>
+                <el-form-item label="是否可用">
+                    <span>{{ boardroom.use ? '可用' : '不可用' }}</span>
                 </el-form-item>
             </el-form>
         </el-dialog>
-        <el-dialog title="修改用品信息" :visible.sync="updateShow" :center="true">
-            <el-form :model="product" status-icon :rules="rules" ref="product" label-width="100px">
-                <el-form-item label="用品名称" prop="name">
-                    <el-input v-model="product.name"></el-input>
+        <el-dialog title="修改会议室信息" :visible.sync="updateShow" :center="true">
+            <el-form :model="boardroom" status-icon :rules="rules" ref="boardroom" label-width="100px">
+                <el-form-item label="会议室编号" prop="id">
+                    <el-input v-model="boardroom.id"></el-input>
                 </el-form-item>
-                <el-form-item label="用品类别">
-                    <el-select v-model="product.category.id" placeholder="请选择用品类别">
-                        <el-option v-for="item in categorys" :label="item.category" :value="item.id"></el-option>
-                    </el-select>
+                <el-form-item label="会议室名称" prop="name">
+                    <el-input v-model="boardroom.name"></el-input>
                 </el-form-item>
-                <el-form-item label="用品单价" prop="price">
-                    <el-input v-model="product.price"></el-input>
+                <el-form-item label="会议室地址" prop="address">
+                    <el-input v-model="boardroom.address"></el-input>
                 </el-form-item>
-                <el-form-item label="用品库存" prop="num">
-                    <el-input v-model="product.num"></el-input>
+                <el-form-item label="是否可用" prop="use">
+                    <el-radio v-model="boardroom.use" border :label="true">可用</el-radio>
+                    <el-radio v-model="boardroom.use" border :label="false">不可用</el-radio>
                 </el-form-item>
                 <el-form-item>
-                    <el-button type="primary" @click="submitForm('product')">修改</el-button>
-                    <el-button @click="resetForm('product')">重置</el-button>
+                    <el-button type="primary" @click="submitForm('boardroom')">修改</el-button>
+                    <el-button @click="resetForm('boardroom')">重置</el-button>
                 </el-form-item>
             </el-form>
         </el-dialog>
-        <el-dialog title="添加用品" :visible.sync="addShow" :center="true">
-            <el-form :model="product" status-icon :rules="rules" ref="product" label-width="100px">
-                <el-form-item label="用品名称" prop="name">
-                    <el-input v-model="product.name"></el-input>
+        <el-dialog title="添加会议室" :visible.sync="addShow" :center="true">
+            <el-form :model="boardroom" status-icon :rules="rules" ref="boardroom" label-width="100px">
+                <el-form-item label="会议室名称" prop="name">
+                    <el-input v-model="boardroom.name"></el-input>
                 </el-form-item>
-                <el-form-item label="用品类别">
-                    <el-select :clearable="true" :remote="true" @focus="getCategorys" v-model="product.category.id" placeholder="请选择用品类别">
-                        <el-option v-for="item in categorys" :label="item.category" :value="item.id"></el-option>
-                    </el-select>
+                <el-form-item label="会议室地址" prop="address">
+                    <el-input v-model="boardroom.address"></el-input>
                 </el-form-item>
-                <el-form-item label="用品单价" prop="price">
-                    <el-input v-model="product.price"></el-input>
-                </el-form-item>
-                <el-form-item label="用品库存" prop="num">
-                    <el-input v-model="product.num"></el-input>
+                <el-form-item label="是否可用" prop="use">
+                    <el-radio v-model="boardroom.use" border :label="true">可用</el-radio>
+                    <el-radio v-model="boardroom.use" border :label="false">不可用</el-radio>
                 </el-form-item>
                 <el-form-item>
-                    <el-button type="primary" @click="addSubmitForm('product')">添加</el-button>
-                    <el-button @click="resetForm('product')">重置</el-button>
+                    <el-button type="primary" @click="addSubmitForm('boardroom')">添加</el-button>
+                    <el-button @click="resetForm('boardroom')">重置</el-button>
                 </el-form-item>
             </el-form>
         </el-dialog>
@@ -113,7 +103,7 @@
 <script>
 
     export default {
-        name: 'product',
+        name: 'boardroom',
         data: function () {
             return {
                 tableData: [],
@@ -127,67 +117,40 @@
                 show: false,
                 updateShow: false,
                 addShow: false,
-                product: {
+                boardroom: {
                     id: '',
                     name: '',
-                    price: '',
-                    num: '',
-                    category: {
-                        id: '',
-                        category: ''
-                    }
-                },
-                category: {
-                    id: ''
-                },
-                categorys: [],
+                    address: '',
+                    use: ''
+                }
             }
         },
         created() {
-            this.initProduct();
+            this.initBoardroom();
             this.getTotal();
             this.getCtotal();
         },
         methods: {
-            initProduct: function () {
+            initBoardroom: function () {
                 const t = this;
-                this.axios.post('/zteoa/product/queryList', {
-                    currPage: this.currPage,
-                    pageSize: this.pageSize
-                })
-                    .then(res => {
-                        t.tableData = res.data;
-                        t.load = false;
-                    })
-                    .catch(error => console.log(error));
-            },
-            categoryChange: function () {
-                let t = this;
-                this.axios.post('/zteoa/product/queryList', {
-                    name: t.search,
-                    categoryId: t.category.id,
-                    currPage: 1,
+                this.axios.post('/zteoa/boardroom/queryList', {
+                    currPage: t.currPage,
                     pageSize: t.pageSize
                 })
                     .then(res => {
-                        t.getTotal();
                         t.tableData = res.data;
                         t.load = false;
                     })
                     .catch(error => console.log(error));
             },
-            getCategorys: function () {
-                const t = this;
-                this.axios.get('/zteoa/productCategory/queryAll')
-                    .then(res => {
-                        t.categorys = res.data
-                    })
+            getTime: function (time) {
+                let date = new Date(time);
+                return date.getFullYear() + '-' + (parseInt(date.getMonth()) + 1) + '-' + date.getDate() + ' ' + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
             },
             handleSelect: function (item) {
                 const t = this;
-                this.axios.post('/zteoa/product/queryList', {
+                this.axios.post('/zteoa/boardroom/queryList', {
                     name: t.search,
-                    categoryId: t.category.id,
                     currPage: 1,
                     pageSize: t.pageSize
                 })
@@ -201,11 +164,8 @@
             handleSizeChange: function (val) {
                 const t = this;
                 t.pageSize = val;
-                this.currPage = 1;
-                this.axios.post('/zteoa/product/queryList', {
-                    name: t.search,
-                    categoryId: t.category.id,
-                    currPage: 1,
+                this.axios.post('/zteoa/boardroom/queryList', {
+                    currPage: t.currPage,
                     pageSize: val
                 })
                     .then(res => {
@@ -217,9 +177,7 @@
             handleCurrentChange: function (val) {
                 const t = this;
                 t.currPage = val;
-                this.axios.post('/zteoa/product/queryList', {
-                    name: t.search,
-                    categoryId: t.category.id,
+                this.axios.post('/zteoa/boardroom/queryList', {
                     currPage: val,
                     pageSize: t.pageSize
                 })
@@ -231,9 +189,8 @@
             },
             getTotal: function () {
                 const t = this;
-                this.axios.post('/zteoa/product/queryTotal', {
-                    name: t.search,
-                    categoryId: t.category.id
+                this.axios.post('/zteoa/boardroom/queryTotal', {
+                    name: t.search
                 })
                     .then(res => {
                         t.total = res.data;
@@ -248,7 +205,7 @@
             },
             getCtotal: function () {
                 const t = this;
-                this.axios.post('/zteoa/product/queryTotal', {
+                this.axios.post('/zteoa/boardroom/queryTotal', {
                     name: t.search
                 })
                     .then(res => {
@@ -264,9 +221,8 @@
             },
             querySearch: function (queryString, cb) {
                 const t = this;
-                this.axios.post('/zteoa/product/queryList', {
+                this.axios.post('/zteoa/boardroom/queryList', {
                     name: t.search,
-                    categoryId: t.category.id,
                     currPage: 1,
                     pageSize: t.ctotal
                 })
@@ -275,9 +231,9 @@
                     })
                     .catch(error => console.log(error));
             },
-            addProduct: function () {
+            addBoardroom: function () {
                 let t = this;
-                this.axios.get('/zteoa/product/isAuthority')
+                this.axios.get('/zteoa/boardroom/isAuthority')
                     .then(res => {
                         if (res.data.bl) {
                             t.$message({
@@ -285,17 +241,7 @@
                                 message: res.data.message,
                                 type: 'success'
                             });
-                            t.getCategorys();
-                            t.product = {
-                                id: '',
-                                name: '',
-                                price: '',
-                                num: '',
-                                category: {
-                                    id: '',
-                                    category: ''
-                                }
-                            };
+                            this.boardroom = '';
                             t.addShow = true;
                         } else {
                             t.$message({
@@ -306,13 +252,13 @@
                         }
                     })
             },
-            showProduct: function (product) {
-                this.product = product;
+            showBoardroom: function (boardroom) {
+                this.boardroom = boardroom;
                 this.show = true;
             },
-            updateProduct: function (product) {
+            updateBoardroom: function (boardroom) {
                 let t = this;
-                this.axios.get('/zteoa/product/isAuthority')
+                this.axios.get('/zteoa/boardroom/isAuthority')
                     .then(res => {
                         if (res.data.bl) {
                             t.$message({
@@ -320,8 +266,7 @@
                                 message: res.data.message,
                                 type: 'success'
                             });
-                            t.getCategorys();
-                            this.product = product;
+                            this.boardroom = boardroom;
                             t.updateShow = true;
                         } else {
                             t.$message({
@@ -332,14 +277,14 @@
                         }
                     })
             },
-            deleteProduct: function (product) {
+            deleteBoardroom: function (boardroom) {
                 let t = this;
-                this.axios.get('/zteoa/product/isAuthority')
+                this.axios.get('/zteoa/boardroom/isAuthority')
                     .then(res => {
                         if (res.data.bl) {
-                            t.axios.get('/zteoa/product/delete', {
+                            t.axios.get('/zteoa/boardroom/delete', {
                                 params: {
-                                    id: product.row.id
+                                    id: boardroom.row.id
                                 }
                             })
                                 .then(res => {
@@ -351,11 +296,11 @@
                                         });
                                         t.total--;
                                         t.ctotal--;
-                                        t.tableData.splice(product.$index, 1);
+                                        t.tableData.splice(boardroom.$index, 1);
                                     } else {
                                         t.$message({
                                             showClose: true,
-                                            message: '服务器异常',
+                                            message: '删除失败',
                                             type: 'error'
                                         });
                                     }
@@ -380,16 +325,15 @@
                 this.$refs[formName].validate((valid) => {
                     let t = this;
                     if (valid) {
-                        this.axios.post('/zteoa/product/update', {
-                            id: t.product.id,
-                            name: t.product.name,
-                            price: t.product.price,
-                            num: t.product.num,
-                            categoryId: t.product.category.id
+                        this.axios.post('/zteoa/boardroom/update', {
+                            id: t.boardroom.id,
+                            name: t.boardroom.name,
+                            address: t.boardroom.address,
+                            use: t.boardroom.use
                         })
                             .then(res => {
                                 if (res.data) {
-                                    t.initProduct();
+                                    t.initBoardroom();
                                     t.updateShow = false;
                                     this.$message({
                                         showClose: true,
@@ -399,7 +343,7 @@
                                 } else {
                                     this.$message({
                                         showClose: true,
-                                        message: '更新失败，请检查用品id',
+                                        message: '更新失败，请检查会议室id',
                                         type: 'error'
                                     });
                                 }
@@ -422,15 +366,14 @@
                 this.$refs[formName].validate((valid) => {
                     let t = this;
                     if (valid) {
-                        this.axios.post('/zteoa/product/add', {
-                            name: t.product.name,
-                            price: t.product.price,
-                            num: t.product.num,
-                            categoryId: t.product.category.id
+                        this.axios.post('/zteoa/boardroom/add', {
+                            name: t.boardroom.name,
+                            address: t.boardroom.address,
+                            use: t.boardroom.use
                         })
                             .then(res => {
                                 if (res.data) {
-                                    t.initProduct();
+                                    t.initBoardroom();
                                     t.getTotal();
                                     t.addShow = false;
                                     this.$message({
@@ -438,10 +381,11 @@
                                         message: '添加成功',
                                         type: 'success'
                                     });
+                                    ctotal++;
                                 } else {
                                     this.$message({
                                         showClose: true,
-                                        message: '更新失败，请检查用品id',
+                                        message: '更新失败，请检查会议室id',
                                         type: 'error'
                                     });
                                 }
@@ -480,9 +424,5 @@
         margin-right: 0;
         margin-bottom: 0;
         width: 50%;
-    }
-
-    .wid {
-        width: 150px;
     }
 </style>

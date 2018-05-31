@@ -31,7 +31,7 @@
                         <template slot="title">
                             <i class="el-icon-document"></i>会议管理
                         </template>
-                        <el-menu-item index="/3-1">会议室管理</el-menu-item>
+                        <el-menu-item index="/boardroom">会议室管理</el-menu-item>
                         <el-menu-item index="/3-2">会议设施管理</el-menu-item>
                     </el-submenu>
                     <el-submenu index="4">
