@@ -25,8 +25,7 @@
                             <i class="el-icon-goods"></i>办公用品
                         </template>
                         <el-menu-item index="/product">用品管理</el-menu-item>
-                        <el-menu-item index="/test">用品类别</el-menu-item>
-                        <el-menu-item index="/foo1">用品统计</el-menu-item>
+                        <el-menu-item index="/productCategory">用品类别</el-menu-item>
                     </el-submenu>
                     <el-submenu index="3">
                         <template slot="title">
