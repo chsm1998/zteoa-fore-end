@@ -1,10 +1,10 @@
 <template>
     <el-container style="height: 700px; border: 1px solid #eee">
         <el-header style="text-align: right; font-size: 12px">
-            <el-dropdown @command="exit">
+            <el-dropdown @command="command">
                 <i class="el-icon-setting" style="margin-right: 15px"></i>
                 <el-dropdown-menu slot="dropdown">
-                    <el-dropdown-item>退出登录</el-dropdown-item>
+                    <el-dropdown-item :command="exit">退出登录</el-dropdown-item>
                 </el-dropdown-menu>
             </el-dropdown>
             <span>{{ emp.name }}</span>
@@ -32,14 +32,14 @@
                             <i class="el-icon-document"></i>会议管理
                         </template>
                         <el-menu-item index="/boardroom">会议室管理</el-menu-item>
-                        <el-menu-item index="/3-2">会议设施管理</el-menu-item>
+                        <el-menu-item index="/boardroomFacilities">会议设施管理</el-menu-item>
                     </el-submenu>
                     <el-submenu index="4">
                         <template slot="title">
                             <i class="el-icon-view"></i>办公审批
                         </template>
-                        <el-menu-item index="/4-1">用品审批</el-menu-item>
-                        <el-menu-item index="/4-2">会议审批</el-menu-item>
+                        <el-menu-item index="/receive">用品审批</el-menu-item>
+                        <el-menu-item index="/brApply">会议审批</el-menu-item>
                     </el-submenu>
                 </el-menu>
             </el-aside>
@@ -67,10 +67,12 @@
                         name: ''
                     },
                 },
+                applys: [],
             }
         },
         created() {
             this.getEmp();
+            this.getApply();
         },
         methods: {
             getEmp: function () {
@@ -80,13 +82,47 @@
                         t.emp = res.data;
                     })
             },
-            exit: function () {
-                this.axios.get('/zteoa/emp/exit')
-                .then(res => {
-                    if (res.data) {
-                        this.$router.push('/login');
+            getApply: function () {
+                let t = this;
+                this.axios.get('/zteoa/boardroomApply/getAllApply')
+                    .then(res => {
+                        t.applys = res.data;
+                        t.showApply();
+                    })
+            },
+            showApply: function () {
+                let time = 0;
+                this.applys.forEach(apply => {
+                    if (apply.agree == 2) {
+                        setTimeout(() => {
+                            this.$notify({
+                                title: '会议审核通过',
+                                message: '您申请的会议室' + apply.boardroom.name + "已经通过审核啦！！！",
+                                type: 'success',
+                                position: 'bottom-right'
+                            })
+                        }, time);
+                        time += 500;
+                    } else if (apply.agree == 3) {
+                        setTimeout(() => {
+                            this.$notify({
+                                title: '会议审核未通过',
+                                message: '很遗憾，您申请的会议室' + apply.boardroom.name + "未能通过审核了，您可以再次尝试提交审核信息！",
+                                type: 'error',
+                                position: 'bottom-right'
+                            })
+                        }, time);
+                        time += 500;
                     }
-                })
+                });
+            },
+            command: function () {
+                this.axios.get('/zteoa/emp/exit')
+                    .then(res => {
+                        if (res.data) {
+                            this.$router.push('/login');
+                        }
+                    })
             }
         }
     }

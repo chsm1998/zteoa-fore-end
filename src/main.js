@@ -19,6 +19,9 @@ import Position from "./system/Position.vue";
 import Product from "./product/product.vue";
 import ProductCategory from "./product/productCategory.vue";
 import Boardroom from "./metting/MettingRoom.vue";
+import BoardroomFacilities from "./metting/BoardroomFacilities.vue";
+import BrApply from "./metting/BrApply.vue";
+import Receive from "./metting/Receive.vue";
 
 // require('./mock.js');
 
@@ -36,6 +39,9 @@ const routes = [
       { path: '/product', component: Product },
       { path: '/productCategory', component: ProductCategory },
       { path: '/boardroom', component: Boardroom },
+      { path: '/boardroomFacilities', component: BoardroomFacilities },
+      { path: '/brApply', component: BrApply },
+      { path: '/receive', component: Receive },
     ]
   },
   {

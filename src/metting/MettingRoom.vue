@@ -29,9 +29,10 @@
                 <el-table-column fixed="right" label="操作">
                     <template slot-scope="Boardroom">
                         <el-button-group>
-                            <el-button size="small" @click="showBoardroom(Boardroom.row)" icon="el-icon-search" ></el-button>
-                            <el-button size="small" @click="updateBoardroom(Boardroom.row)" type="primary" icon="el-icon-edit" ></el-button>
-                            <el-button size="small" @click="deleteBoardroom(Boardroom)" type="danger" icon="el-icon-delete" ></el-button>
+                            <el-button size="small" @click="showBoardroom(Boardroom.row)" icon="el-icon-search"></el-button>
+                            <el-button size="small" @click="updateBoardroom(Boardroom.row)" type="primary" icon="el-icon-edit"></el-button>
+                            <el-button size="small" @click="deleteBoardroom(Boardroom)" type="danger" icon="el-icon-delete"></el-button>
+                            <el-button v-if="Boardroom.row.use" size="small" @click="applyBoardroom(Boardroom)" type="success">申请会议室</el-button>
                         </el-button-group>
                     </template>
                 </el-table-column>
@@ -97,6 +98,22 @@
                 </el-form-item>
             </el-form>
         </el-dialog>
+        <el-dialog title="申请会议室" :visible.sync="applyShow" :center="true">
+            <el-form :model="boardroomApply" status-icon label-width="100px">
+                <el-form-item label="使用时间">
+                    <el-date-picker @change="timeChange" :editable="false" :picker-options="pickerBeginDateBefore" v-model="value" value-format="yyyy-MM-dd HH:mm:ss"
+                        type="datetimerange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期">
+                    </el-date-picker>
+                </el-form-item>
+                <el-form-item label="会议室名称">
+                    <el-input readonly v-model="boardroomApply.boardroom.name"></el-input>
+                </el-form-item>
+                <el-form-item>
+                    <el-button type="primary" @click="addApply('boardroom')">添加</el-button>
+                    <el-button @click="resetForm('boardroom')">重置</el-button>
+                </el-form-item>
+            </el-form>
+        </el-dialog>
     </div>
 </template>
 
@@ -108,6 +125,7 @@
             return {
                 tableData: [],
                 pageSizes: [5, 10, 15, 20],
+                value: [],
                 total: 1,
                 ctotal: 1,
                 search: '',
@@ -117,11 +135,25 @@
                 show: false,
                 updateShow: false,
                 addShow: false,
+                applyShow: false,
                 boardroom: {
                     id: '',
                     name: '',
                     address: '',
                     use: ''
+                },
+                boardroomApply: {
+                    start: '',
+                    end: '',
+                    boardroom: {
+                        id: '',
+                        name: '',
+                    }
+                },
+                pickerBeginDateBefore: {
+                    disabledDate(time) {
+                        return time.getTime() < Date.now() - 1000 * 60 * 50 * 24;
+                    }
                 }
             }
         },
@@ -142,6 +174,10 @@
                         t.load = false;
                     })
                     .catch(error => console.log(error));
+            },
+            timeChange: function (dates) {
+                this.boardroomApply.start = dates[0];
+                this.boardroomApply.end = dates[1];
             },
             getTime: function (time) {
                 let date = new Date(time);
@@ -231,6 +267,12 @@
                     })
                     .catch(error => console.log(error));
             },
+            applyBoardroom: function (boardroom) {
+                let t = this;
+                this.boardroomApply.boardroom.name = boardroom.row.name;
+                this.boardroomApply.boardroom.id = boardroom.row.id;
+                t.applyShow = true;
+            },
             addBoardroom: function () {
                 let t = this;
                 this.axios.get('/zteoa/boardroom/isAuthority')
@@ -319,6 +361,38 @@
                                 type: 'error'
                             });
                         }
+                    })
+            },
+            addApply: function (formName) {
+                let t = this;
+                this.axios.post('/zteoa/boardroomApply/add', {
+                    start: t.boardroomApply.start,
+                    end: t.boardroomApply.end,
+                    bid: t.boardroomApply.boardroom.id
+                })
+                    .then(res => {
+                        if (res.data) {
+                            t.applyShow = false;
+                            this.$message({
+                                showClose: true,
+                                message: '申请会议成功',
+                                type: 'success'
+                            });
+                        } else {
+                            this.$message({
+                                showClose: true,
+                                message: '申请会议失败，请检查会议室id',
+                                type: 'error'
+                            });
+                        }
+                    })
+                    .catch(res => {
+                        this.$message({
+                            showClose: true,
+                            message: '更新失败，服务器异常',
+                            type: 'error'
+                        });
+                        console.log(res);
                     })
             },
             submitForm(formName) {
