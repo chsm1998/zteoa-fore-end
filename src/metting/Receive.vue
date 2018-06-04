@@ -38,7 +38,7 @@
                     <template slot-scope="Receive">
                         <el-button-group>
                             <el-button size="small" @click="showReceive(Receive.row)" icon="el-icon-search"></el-button>
-                            <template v-if="isAuthority && Receive.row.agree == 1">
+                            <template v-if="getUpdate() && Receive.row.agree == 1">
                                 <el-button size="small" @click="applySuccess(Receive.row)" type="success">通过审核</el-button>
                                 <el-button size="small" @click="applyError(Receive.row)" type="danger">不通过审核</el-button>
                             </template>
@@ -84,14 +84,14 @@
             </el-form>
         </el-dialog>
         <el-dialog title="添加申请信息" :visible.sync="addShow" :center="true">
-            <el-form :model="receive" status-icon label-width="100px">
+            <el-form :model="receive" :rules="rules" status-icon label-width="100px">
                 <el-form-item label="用品名称">
-                    <el-select v-model="receive.pid" filterable placeholder="请选择用品">
+                    <el-select @change="updateNum" v-model="receive.pid" filterable placeholder="请选择用品">
                         <el-option v-for="item in products" :key="item.id" :label="item.name" :value="item.id"></el-option>
                     </el-select>
                 </el-form-item>
-                <el-form-item label="申请数量">
-                    <el-input v-model="receive.num"></el-input>
+                <el-form-item label="申请数量" prop="num">
+                    <el-input-number v-model="receive.num" :min="1" :max="maxNum" label="申请数量"></el-input-number>
                 </el-form-item>
                 <el-form-item label="申请原因">
                     <el-input v-model="receive.reason"></el-input>
@@ -113,16 +113,16 @@
             </el-form>
         </el-dialog>
         <el-dialog title="修改申请信息" :visible.sync="updateShow" :center="true">
-            <el-form :model="receive" status-icon label-width="100px">
+            <el-form :model="receive" :rules="rules" status-icon label-width="100px">
                 <el-form-item label="用品名称">
-                    <el-select v-model="receive.pid" filterable placeholder="请选择用品">
+                    <el-select @change="updateNum" v-model="receive.pid" filterable placeholder="请选择用品">
                         <el-option v-for="item in products" :key="item.id" :label="item.name" :value="item.id"></el-option>
                     </el-select>
                 </el-form-item>
                 <el-form-item label="申请数量" prop="num">
-                    <el-input v-model="receive.num"></el-input>
+                    <el-input-number v-model="receive.num" :min="1" :max="maxNum" label="申请数量"></el-input-number>
                 </el-form-item>
-                <el-form-item label="申请原因" prop="num">
+                <el-form-item label="申请原因">
                     <el-input v-model="receive.reason"></el-input>
                 </el-form-item>
                 <el-form-item label="申请类别" prop="category">
@@ -130,11 +130,11 @@
                     <el-radio v-model="receive.category" border label="2">会议设施申请</el-radio>
                 </el-form-item>
                 <template v-if="receive.category == 2">
-                    <el-fore-item label="所属会议室">
+                    <el-form-item label="所属会议室">
                         <el-select v-model="receive.bid" filterable placeholder="请选择所属会议室">
                             <el-option v-for="item in rooms" :key="item.id" :label="item.name" :value="item.id"></el-option>
                         </el-select>
-                    </el-fore-item>
+                    </el-form-item>
                 </template>
                 <el-form-item>
                     <el-button type="primary" @click="subUpdateReceive('receive')">修改</el-button>
@@ -149,10 +149,31 @@
     export default {
         name: 'receive',
         data: function () {
+            let checkNum = (rule, value, callback) => {
+                let t = this;
+                this.axios.post('/zteoa/product/isMaxNum', {
+                    num: value,
+                    id: t.receive.pid
+                })
+                    .then(res => {
+                        if (res.data) {
+                            callback();
+                        } else {
+                            callback(new Error('数量不得超过最大库存!'));
+                        }
+                    })
+            }
             return {
                 tableData: [],
                 rooms: [],
                 pageSizes: [5, 10, 15, 20],
+                maxNum: 1,
+                add: false,
+                update: false,
+                select: false,
+                deletes: false,
+                authoritys: [],
+                emps: '',
                 total: 1,
                 ctotal: 1,
                 search: '',
@@ -163,7 +184,7 @@
                 show: false,
                 addShow: false,
                 updateShow: false,
-                isAuthority: false,
+                // isAuthority: false,
                 value: [],
                 // isApplyEmp: 'false',
                 receive: {
@@ -184,9 +205,16 @@
                     }
                 },
                 products: [],
+                rules: {
+                    num: [
+                        { validator: checkNum, trigger: 'blur' }
+                    ]
+                }
             }
         },
         created() {
+            this.getAuthoritys();
+            this.getEmp();
             this.getEid();
             this.initReceive();
             this.getTotal();
@@ -197,7 +225,7 @@
         methods: {
             initReceive: function () {
                 const t = this;
-                this.isAuthorityF();
+                // this.isAuthorityF();
                 // this.isApplyEmpF();
                 this.axios.post('/zteoa/receive/queryList', {
                     currPage: t.currPage,
@@ -208,6 +236,67 @@
                         t.load = false;
                     })
                     .catch(error => console.log(error));
+            },
+            tableRowClassName: function ({ row, rowIndex }) {
+                if (row.agree == 3) {
+                    return 'warning-row';
+                } else if (row.agree == 2) {
+                    return 'success-row';
+                }
+            },
+            updateNum: function (id) {
+                this.products.forEach(pro => {
+                    if (pro.id === id) {
+                        this.maxNum = pro.num;
+                    }
+                })
+            },
+            getEmp: function () {
+                let t = this;
+                this.axios.get("/zteoa/emp/getEmp")
+                    .then(res => {
+                        t.emps = res.data;
+                    })
+            },
+            getUpdate: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.update;
+            },
+            getDelete: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.deletes;
+            },
+            getAdd: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.add;
+            },
+            getState: function () {
+                let t = this;
+                this.authoritys.forEach(authority => {
+                    if (authority.type == 1) {
+                        t.select = authority.authority;
+                    } else if (authority.type == 2) {
+                        t.deletes = authority.authority;
+                    } else if (authority.type == 3) {
+                        t.update = authority.authority;
+                    } else {
+                        t.add = authority.authority;
+                    }
+                });
+            },
+            getAuthoritys: function () {
+                let t = this;
+                this.axios.get("/zteoa/receive/getAuthoritys")
+                    .then(res => {
+                        t.authoritys = res.data;
+                        this.getState();
+                    })
             },
             getProducts: function () {
                 let t = this;
@@ -230,13 +319,13 @@
                         t.eid = res.data.id;
                     })
             },
-            isAuthorityF: function () {
-                let t = this;
-                this.axios.get('/zteoa/boardroomApply/isAuthority')
-                    .then(res => {
-                        t.isAuthority = res.data.bl;
-                    })
-            },
+            // isAuthorityF: function () {
+            //     let t = this;
+            //     this.axios.get('/zteoa/boardroomApply/isAuthority')
+            //         .then(res => {
+            //             t.isAuthority = res.data.bl;
+            //         })
+            // },
             // isApplyEmpF: function () {
             //     let t = this;
             //     this.axios.get('/zteoa/boardroomApply/getAllApply')
@@ -358,18 +447,18 @@
                     reason: t.receive.reason,
                 })
                     .then(res => {
-                        if (res.data) {
+                        if (res.data.bl) {
                             t.addShow = false;
                             this.$message({
                                 showClose: true,
-                                message: '添加用品申请成功',
+                                message: res.data.message,
                                 type: 'success'
                             });
                             t.initReceive();
                         } else {
                             this.$message({
                                 showClose: true,
-                                message: '添加用品申请失败，服务器异常',
+                                message: res.data.message,
                                 type: 'error'
                             });
                         }
@@ -385,25 +474,29 @@
             },
             subUpdateReceive: function (receive) {
                 let t = this;
-                this.axios.post('/zteoa/receive/update', {
+                this.axios.post('/zteoa/receive/newUpdate', {
                     id: t.receive.id,
-                    pid: t.receive.product.id,
+                    bid: t.receive.bid,
+                    pid: t.receive.pid,
                     num: t.receive.num,
                     category: t.receive.category,
                     reason: t.receive.reason,
                 })
                     .then(res => {
-                        if (res.data) {
+                        if (res.data.bl) {
                             t.updateShow = false;
                             this.$message({
                                 showClose: true,
-                                message: '更新用品申请成功',
+                                message: res.data.message,
                                 type: 'success'
                             });
+                            this.initReceive();
+                            this.getTotal();
+                            this.getCtotal();
                         } else {
                             this.$message({
                                 showClose: true,
-                                message: '更新用品申请失败，服务器异常',
+                                message: res.data.message,
                                 type: 'error'
                             });
                         }
@@ -419,57 +512,53 @@
             },
             applySuccess: function (receive) {
                 let t = this;
-                this.axios.get('/zteoa/receive/isAuthority')
+                this.axios.post('/zteoa/receive/update', {
+                    id: receive.id,
+                    agree: 2
+                })
                     .then(res => {
-                        if (res.data) {
-                            this.axios.post('/zteoa/receive/update', {
-                                id: receive.id,
-                                agree: 2
-                            })
-                                .then(res => {
-                                    if (res.data) {
-                                        t.receive.agree = 2;
-                                        t.$message({
-                                            showClose: true,
-                                            message: '审核状态更新成功',
-                                            type: 'success'
-                                        });
-                                    } else {
-                                        t.$message({
-                                            showClose: true,
-                                            message: '审核状态更新失败，服务器异常',
-                                            type: 'error'
-                                        });
-                                    }
-                                })
+                        if (res.data.bl) {
+                            t.receive.agree = 2;
+                            t.$message({
+                                showClose: true,
+                                message: res.data.message,
+                                type: 'success'
+                            });
+                            this.initReceive();
+                            this.getTotal();
+                            this.getCtotal();
+                        } else {
+                            t.$message({
+                                showClose: true,
+                                message: res.data.message,
+                                type: 'error'
+                            });
                         }
                     })
             },
             applyError: function (receive) {
                 let t = this;
-                this.axios.get('/zteoa/receive/isAuthority')
+                this.axios.post('/zteoa/receive/update', {
+                    id: receive.id,
+                    agree: 3
+                })
                     .then(res => {
-                        if (res.data) {
-                            this.axios.post('/zteoa/receive/update', {
-                                id: receive.id,
-                                agree: 3
-                            })
-                                .then(res => {
-                                    if (res.data) {
-                                        t.receive.agree = 3;
-                                        t.$message({
-                                            showClose: true,
-                                            message: '审核状态更新成功',
-                                            type: 'success'
-                                        });
-                                    } else {
-                                        t.$message({
-                                            showClose: true,
-                                            message: '审核状态更新失败，服务器异常',
-                                            type: 'error'
-                                        });
-                                    }
-                                })
+                        if (res.data.bl) {
+                            t.receive.agree = 3;
+                            t.$message({
+                                showClose: true,
+                                message: res.data.message,
+                                type: 'success'
+                            });
+                            this.initReceive();
+                            this.getTotal();
+                            this.getCtotal();
+                        } else {
+                            t.$message({
+                                showClose: true,
+                                message: res.data.message,
+                                type: 'error'
+                            });
                         }
                     })
             }
@@ -491,5 +580,13 @@
         margin-right: 0;
         margin-bottom: 0;
         width: 50%;
+    }
+
+    .el-table .warning-row {
+        background: oldlace;
+    }
+
+    .el-table .success-row {
+        background: #f0f9eb;
     }
 </style>

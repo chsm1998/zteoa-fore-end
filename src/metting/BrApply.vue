@@ -34,7 +34,7 @@
                     <template slot-scope="BoardroomApply">
                         <el-button-group>
                             <el-button size="small" @click="showBoardroomApply(BoardroomApply.row)" icon="el-icon-search"></el-button>
-                            <template v-if="isAuthority && BoardroomApply.row.agree == 1">
+                            <template v-if="getUpdate() && BoardroomApply.row.agree == 1">
                                 <el-button size="small" @click="applySuccess(BoardroomApply.row)" type="success">通过审核</el-button>
                                 <el-button size="small" @click="applyError(BoardroomApply.row)" type="danger">不通过审核</el-button>
                             </template>
@@ -102,6 +102,12 @@
             return {
                 tableData: [],
                 pageSizes: [5, 10, 15, 20],
+                add: false,
+                update: false,
+                select: false,
+                deletes: false,
+                authoritys: [],
+                emps: '',
                 total: 1,
                 ctotal: 1,
                 search: '',
@@ -112,7 +118,6 @@
                 show: false,
                 addShow: false,
                 updateShow: false,
-                isAuthority: false,
                 value: [],
                 // isApplyEmp: 'false',
                 boardroomApply: {
@@ -133,6 +138,8 @@
             }
         },
         created() {
+            this.getAuthoritys();
+            this.getEmp();
             this.getEid();
             this.initBoardroomApply();
             this.getTotal();
@@ -141,7 +148,6 @@
         methods: {
             initBoardroomApply: function () {
                 const t = this;
-                this.isAuthorityF();
                 // this.isApplyEmpF();
                 this.axios.post('/zteoa/boardroomApply/queryList', {
                     currPage: t.currPage,
@@ -153,23 +159,70 @@
                     })
                     .catch(error => console.log(error));
             },
+            tableRowClassName: function ({ row, rowIndex }) {
+                if (row.agree == 3) {
+                    return 'warning-row';
+                } else if (row.agree == 2) {
+                    return 'success-row';
+                }
+            },
+            getEmp: function () {
+                let t = this;
+                this.axios.get("/zteoa/emp/getEmp")
+                    .then(res => {
+                        t.emps = res.data;
+                    })
+            },
+            getUpdate: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.update;
+            },
+            getDelete: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.deletes;
+            },
+            getAdd: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.add;
+            },
+            getState: function () {
+                let t = this;
+                this.authoritys.forEach(authority => {
+                    if (authority.type == 1) {
+                        t.select = authority.authority;
+                    } else if (authority.type == 2) {
+                        t.deletes = authority.authority;
+                    } else if (authority.type == 3) {
+                        t.update = authority.authority;
+                    } else {
+                        t.add = authority.authority;
+                    }
+                });
+            },
+            getAuthoritys: function () {
+                let t = this;
+                this.axios.get("/zteoa/product/getAuthoritys")
+                    .then(res => {
+                        t.authoritys = res.data;
+                        this.getState();
+                    })
+            },
             getEid: function () {
                 let t = this;
                 this.axios.get('/zteoa/emp/getEmp')
-                .then(res => {
-                    t.eid = res.data.id;
-                })
+                    .then(res => {
+                        t.eid = res.data.id;
+                    })
             },
             timeChange: function (dates) {
                 this.boardroomApply.start = dates[0];
                 this.boardroomApply.end = dates[1];
-            },
-            isAuthorityF: function () {
-                let t = this;
-                this.axios.get('/zteoa/boardroomApply/isAuthority')
-                    .then(res => {
-                         t.isAuthority = res.data.bl;
-                    })
             },
             // isApplyEmpF: function () {
             //     let t = this;
@@ -266,24 +319,27 @@
             },
             subUpdateApply: function (boardroomApply) {
                 let t = this;
-                this.axios.post('/zteoa/boardroomApply/update', {
+                this.axios.post('/zteoa/boardroomApply/newUpdate', {
                     id: t.boardroomApply.id,
                     start: t.boardroomApply.start,
                     end: t.boardroomApply.end,
                     bid: t.boardroomApply.boardroom.id
                 })
                     .then(res => {
-                        if (res.data) {
+                        if (res.data.bl) {
                             t.updateShow = false;
                             this.$message({
                                 showClose: true,
-                                message: '更新会议申请成功',
+                                message: res.data.message,
                                 type: 'success'
                             });
+                            this.initBoardroomApply();
+                            this.getTotal();
+                            this.getCtotal();
                         } else {
                             this.$message({
                                 showClose: true,
-                                message: '更新会议申请失败，服务器异常',
+                                message: res.data.message,
                                 type: 'error'
                             });
                         }
@@ -299,57 +355,59 @@
             },
             applySuccess: function (boardroomApply) {
                 let t = this;
-                this.axios.get('/zteoa/boardroomApply/isAuthority')
+                this.axios.post('/zteoa/boardroomApply/update', {
+                    id: boardroomApply.id,
+                    start: boardroomApply.start,
+                    end: boardroomApply.end,
+                    bid: boardroomApply.bid,
+                    agree: 2
+                })
                     .then(res => {
-                        if (res.data) {
-                            this.axios.post('/zteoa/boardroomApply/update', {
-                                id: boardroomApply.id,
-                                agree: 2
-                            })
-                                .then(res => {
-                                    if (res.data) {
-                                        t.boardroomApply.agree = 2;
-                                        t.$message({
-                                            showClose: true,
-                                            message: '审核状态更新成功',
-                                            type: 'success'
-                                        });
-                                    } else {
-                                        t.$message({
-                                            showClose: true,
-                                            message: '审核状态更新失败，服务器异常',
-                                            type: 'error'
-                                        });
-                                    }
-                                })
+                        if (res.data.bl) {
+                            t.boardroomApply.agree = 2;
+                            t.$message({
+                                showClose: true,
+                                message: res.data.message,
+                                type: 'success'
+                            });
+                            this.initBoardroomApply();
+                            this.getTotal();
+                            this.getCtotal();
+                        } else {
+                            t.$message({
+                                showClose: true,
+                                message: res.data.message,
+                                type: 'error'
+                            });
                         }
                     })
             },
             applyError: function (boardroomApply) {
                 let t = this;
-                this.axios.get('/zteoa/boardroomApply/isAuthority')
+                this.axios.post('/zteoa/boardroomApply/update', {
+                    id: boardroomApply.id,
+                    start: boardroomApply.start,
+                    end: boardroomApply.end,
+                    bid: boardroomApply.bid,
+                    agree: 3
+                })
                     .then(res => {
-                        if (res.data) {
-                            this.axios.post('/zteoa/boardroomApply/update', {
-                                id: boardroomApply.id,
-                                agree: 3
-                            })
-                                .then(res => {
-                                    if (res.data) {
-                                        t.boardroomApply.agree = 3;
-                                        t.$message({
-                                            showClose: true,
-                                            message: '审核状态更新成功',
-                                            type: 'success'
-                                        });
-                                    } else {
-                                        t.$message({
-                                            showClose: true,
-                                            message: '审核状态更新失败，服务器异常',
-                                            type: 'error'
-                                        });
-                                    }
-                                })
+                        if (res.data.bl) {
+                            t.boardroomApply.agree = 3;
+                            t.$message({
+                                showClose: true,
+                                message: res.data.message,
+                                type: 'success'
+                            });
+                            this.initBoardroomApply();
+                            this.getTotal();
+                            this.getCtotal();
+                        } else {
+                            t.$message({
+                                showClose: true,
+                                message: res.data.message,
+                                type: 'error'
+                            });
                         }
                     })
             }
@@ -371,5 +429,13 @@
         margin-right: 0;
         margin-bottom: 0;
         width: 50%;
+    }
+
+    .el-table .warning-row {
+        background: oldlace;
+    }
+
+    .el-table .success-row {
+        background: #f0f9eb;
     }
 </style>

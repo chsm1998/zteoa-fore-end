@@ -10,7 +10,7 @@
                 </el-autocomplete>
             </el-col>
             <el-col :offset="6" :span="4" class="add">
-                <el-button @click="addBoardroom" type="primary" icon="el-icon-circle-plus">添加会议室</el-button>
+                <el-button v-if="getAdd()" @click="addBoardroom" type="primary" icon="el-icon-circle-plus">添加会议室</el-button>
             </el-col>
         </el-row>
         <el-row>
@@ -26,12 +26,12 @@
                         <span>{{ scope.row.use ? '可用' : '不可用' }}</span>
                     </template>
                 </el-table-column>
-                <el-table-column fixed="right" label="操作">
+                <el-table-column fixed="right" label="操作" width="260">
                     <template slot-scope="Boardroom">
                         <el-button-group>
-                            <el-button size="small" @click="showBoardroom(Boardroom.row)" icon="el-icon-search"></el-button>
-                            <el-button size="small" @click="updateBoardroom(Boardroom.row)" type="primary" icon="el-icon-edit"></el-button>
-                            <el-button size="small" @click="deleteBoardroom(Boardroom)" type="danger" icon="el-icon-delete"></el-button>
+                            <el-button v-if="select" size="small" @click="showBoardroom(Boardroom.row)" icon="el-icon-search"></el-button>
+                            <el-button v-if="getUpdate()" size="small" @click="updateBoardroom(Boardroom.row)" type="primary" icon="el-icon-edit"></el-button>
+                            <el-button v-if="getDelete()" size="small" @click="deleteBoardroom(Boardroom)" type="danger" icon="el-icon-delete"></el-button>
                             <el-button v-if="Boardroom.row.use" size="small" @click="applyBoardroom(Boardroom)" type="success">申请会议室</el-button>
                         </el-button-group>
                     </template>
@@ -125,6 +125,12 @@
             return {
                 tableData: [],
                 pageSizes: [5, 10, 15, 20],
+                add: false,
+                update: false,
+                select: false,
+                deletes: false,
+                authoritys: [],
+                emps: '',
                 value: [],
                 total: 1,
                 ctotal: 1,
@@ -158,6 +164,8 @@
             }
         },
         created() {
+            this.getAuthoritys();
+            this.getEmp();
             this.initBoardroom();
             this.getTotal();
             this.getCtotal();
@@ -174,6 +182,53 @@
                         t.load = false;
                     })
                     .catch(error => console.log(error));
+            },
+             getEmp: function () {
+                let t = this;
+                this.axios.get("/zteoa/emp/getEmp")
+                    .then(res => {
+                        t.emps = res.data;
+                    })
+            },
+            getUpdate: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.update;
+            },
+            getDelete: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.deletes;
+            },
+            getAdd: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.add;
+            },
+            getState: function () {
+                let t = this;
+                this.authoritys.forEach(authority => {
+                    if (authority.type == 1) {
+                        t.select = authority.authority;
+                    } else if (authority.type == 2) {
+                        t.deletes = authority.authority;
+                    } else if (authority.type == 3) {
+                        t.update = authority.authority;
+                    } else {
+                        t.add = authority.authority;
+                    }
+                });
+            },
+            getAuthoritys: function () {
+                let t = this;
+                this.axios.get("/zteoa/product/getAuthoritys")
+                    .then(res => {
+                        t.authoritys = res.data;
+                        this.getState();
+                    })
             },
             timeChange: function (dates) {
                 this.boardroomApply.start = dates[0];
@@ -275,24 +330,8 @@
             },
             addBoardroom: function () {
                 let t = this;
-                this.axios.get('/zteoa/boardroom/isAuthority')
-                    .then(res => {
-                        if (res.data.bl) {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'success'
-                            });
-                            this.boardroom = '';
-                            t.addShow = true;
-                        } else {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'error'
-                            });
-                        }
-                    })
+                this.boardroom = {};
+                t.addShow = true;
             },
             showBoardroom: function (boardroom) {
                 this.boardroom = boardroom;
@@ -300,7 +339,16 @@
             },
             updateBoardroom: function (boardroom) {
                 let t = this;
-                this.axios.get('/zteoa/boardroom/isAuthority')
+                this.boardroom = boardroom;
+                t.updateShow = true;
+            },
+            deleteBoardroom: function (boardroom) {
+                let t = this;
+                t.axios.get('/zteoa/boardroom/delete', {
+                    params: {
+                        id: boardroom.row.id
+                    }
+                })
                     .then(res => {
                         if (res.data.bl) {
                             t.$message({
@@ -308,8 +356,9 @@
                                 message: res.data.message,
                                 type: 'success'
                             });
-                            this.boardroom = boardroom;
-                            t.updateShow = true;
+                            t.total--;
+                            t.ctotal--;
+                            t.tableData.splice(boardroom.$index, 1);
                         } else {
                             t.$message({
                                 showClose: true,
@@ -318,49 +367,12 @@
                             });
                         }
                     })
-            },
-            deleteBoardroom: function (boardroom) {
-                let t = this;
-                this.axios.get('/zteoa/boardroom/isAuthority')
-                    .then(res => {
-                        if (res.data.bl) {
-                            t.axios.get('/zteoa/boardroom/delete', {
-                                params: {
-                                    id: boardroom.row.id
-                                }
-                            })
-                                .then(res => {
-                                    if (res.data) {
-                                        t.$message({
-                                            showClose: true,
-                                            message: '删除成功',
-                                            type: 'success'
-                                        });
-                                        t.total--;
-                                        t.ctotal--;
-                                        t.tableData.splice(boardroom.$index, 1);
-                                    } else {
-                                        t.$message({
-                                            showClose: true,
-                                            message: '删除失败',
-                                            type: 'error'
-                                        });
-                                    }
-                                })
-                                .catch(res => {
-                                    t.$message({
-                                        showClose: true,
-                                        message: '服务器异常',
-                                        type: 'error'
-                                    });
-                                })
-                        } else {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'error'
-                            });
-                        }
+                    .catch(res => {
+                        t.$message({
+                            showClose: true,
+                            message: '服务器异常',
+                            type: 'error'
+                        });
                     })
             },
             addApply: function (formName) {
@@ -371,17 +383,17 @@
                     bid: t.boardroomApply.boardroom.id
                 })
                     .then(res => {
-                        if (res.data) {
+                        if (res.data.bl) {
                             t.applyShow = false;
                             this.$message({
                                 showClose: true,
-                                message: '申请会议成功',
+                                message: res.data.message,
                                 type: 'success'
                             });
                         } else {
                             this.$message({
                                 showClose: true,
-                                message: '申请会议失败，请检查会议室id',
+                                message: res.data.message,
                                 type: 'error'
                             });
                         }
@@ -406,18 +418,18 @@
                             use: t.boardroom.use
                         })
                             .then(res => {
-                                if (res.data) {
+                                if (res.data.bl) {
                                     t.initBoardroom();
                                     t.updateShow = false;
                                     this.$message({
                                         showClose: true,
-                                        message: '更新成功',
+                                        message: res.data.message,
                                         type: 'success'
                                     });
                                 } else {
                                     this.$message({
                                         showClose: true,
-                                        message: '更新失败，请检查会议室id',
+                                        message: res.data.message,
                                         type: 'error'
                                     });
                                 }
@@ -446,30 +458,24 @@
                             use: t.boardroom.use
                         })
                             .then(res => {
-                                if (res.data) {
+                                console.log(res.data);
+                                if (res.data.bl) {
                                     t.initBoardroom();
                                     t.getTotal();
                                     t.addShow = false;
                                     this.$message({
                                         showClose: true,
-                                        message: '添加成功',
+                                        message: res.data.message,
                                         type: 'success'
                                     });
                                     ctotal++;
                                 } else {
                                     this.$message({
                                         showClose: true,
-                                        message: '更新失败，请检查会议室id',
+                                        message: res.data.message,
                                         type: 'error'
                                     });
                                 }
-                            })
-                            .catch(res => {
-                                this.$message({
-                                    showClose: true,
-                                    message: '更新失败，服务器异常',
-                                    type: 'error'
-                                });
                             })
                     } else {
                         console.log('error submit!!');

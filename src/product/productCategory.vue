@@ -10,7 +10,7 @@
                 </el-autocomplete>
             </el-col>
             <el-col :offset="6" :span="4" class="add">
-                <el-button @click="addProductCategory" type="primary" icon="el-icon-circle-plus">添加用品类别</el-button>
+                <el-button v-if="getAdd()" @click="addProductCategory" type="primary" icon="el-icon-circle-plus">添加用品类别</el-button>
             </el-col>
         </el-row>
         <el-row>
@@ -32,9 +32,9 @@
                 <el-table-column fixed="right" label="操作">
                     <template slot-scope="ProductCategory">
                         <el-button-group>
-                            <el-button size="small" @click="showProductCategory(ProductCategory.row)" icon="el-icon-search"></el-button>
-                            <el-button size="small" @click="updateProductCategory(ProductCategory.row)" type="primary" icon="el-icon-edit"></el-button>
-                            <el-button size="small" @click="deleteProductCategory(ProductCategory)" type="danger" icon="el-icon-delete"></el-button>
+                            <el-button v-if="select" size="small" @click="showProductCategory(ProductCategory.row)" icon="el-icon-search"></el-button>
+                            <el-button v-if="getUpdate()" size="small" @click="updateProductCategory(ProductCategory.row)" type="primary" icon="el-icon-edit"></el-button>
+                            <el-button v-if="getDelete()" size="small" @click="deleteProductCategory(ProductCategory)" type="danger" icon="el-icon-delete"></el-button>
                         </el-button-group>
                     </template>
                 </el-table-column>
@@ -94,6 +94,12 @@
             return {
                 tableData: [],
                 pageSizes: [5, 10, 15, 20],
+                add: false,
+                update: false,
+                select: false,
+                deletes: false,
+                authoritys: [],
+                emps: '',
                 total: 1,
                 ctotal: 1,
                 search: '',
@@ -112,6 +118,8 @@
             }
         },
         created() {
+            this.getAuthoritys();
+            this.getEmp();
             this.initProductCategory();
             this.getTotal();
             this.getCtotal();
@@ -128,6 +136,53 @@
                         t.load = false;
                     })
                     .catch(error => console.log(error));
+            },
+            getEmp: function () {
+                let t = this;
+                this.axios.get("/zteoa/emp/getEmp")
+                    .then(res => {
+                        t.emps = res.data;
+                    })
+            },
+            getUpdate: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.update;
+            },
+            getDelete: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.deletes;
+            },
+            getAdd: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.add;
+            },
+            getState: function () {
+                let t = this;
+                this.authoritys.forEach(authority => {
+                    if (authority.type == 1) {
+                        t.select = authority.authority;
+                    } else if (authority.type == 2) {
+                        t.deletes = authority.authority;
+                    } else if (authority.type == 3) {
+                        t.update = authority.authority;
+                    } else {
+                        t.add = authority.authority;
+                    }
+                });
+            },
+            getAuthoritys: function () {
+                let t = this;
+                this.axios.get("/zteoa/productCategory/getAuthoritys")
+                    .then(res => {
+                        t.authoritys = res.data;
+                        this.getState();
+                    })
             },
             getTime: function (time) {
                 let date = new Date(time);
@@ -223,24 +278,8 @@
             },
             addProductCategory: function () {
                 let t = this;
-                this.axios.get('/zteoa/productCategory/isAuthority')
-                    .then(res => {
-                        if (res.data.bl) {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'success'
-                            });
-                            t.productCategory.category = '';
-                            t.addShow = true;
-                        } else {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'error'
-                            });
-                        }
-                    })
+                t.productCategory.category = '';
+                t.addShow = true;
             },
             showProductCategory: function (productCategory) {
                 this.productCategory = productCategory;
@@ -248,7 +287,16 @@
             },
             updateProductCategory: function (productCategory) {
                 let t = this;
-                this.axios.get('/zteoa/productCategory/isAuthority')
+                this.productCategory = productCategory;
+                t.updateShow = true;
+            },
+            deleteProductCategory: function (productCategory) {
+                let t = this;
+                t.axios.get('/zteoa/productCategory/delete', {
+                    params: {
+                        id: productCategory.row.id
+                    }
+                })
                     .then(res => {
                         if (res.data.bl) {
                             t.$message({
@@ -256,8 +304,9 @@
                                 message: res.data.message,
                                 type: 'success'
                             });
-                            this.productCategory = productCategory;
-                            t.updateShow = true;
+                            this.initProductCategory();
+                            this.getTotal();
+                            this.getCtotal();
                         } else {
                             t.$message({
                                 showClose: true,
@@ -266,49 +315,12 @@
                             });
                         }
                     })
-            },
-            deleteProductCategory: function (productCategory) {
-                let t = this;
-                this.axios.get('/zteoa/productCategory/isAuthority')
-                    .then(res => {
-                        if (res.data.bl) {
-                            t.axios.get('/zteoa/productCategory/delete', {
-                                params: {
-                                    id: productCategory.row.id
-                                }
-                            })
-                                .then(res => {
-                                    if (res.data.bl) {
-                                        t.$message({
-                                            showClose: true,
-                                            message: '删除成功',
-                                            type: 'success'
-                                        });
-                                        t.total--;
-                                        t.ctotal--;
-                                        t.tableData.splice(productCategory.$index, 1);
-                                    } else {
-                                        t.$message({
-                                            showClose: true,
-                                            message: res.data.message,
-                                            type: 'error'
-                                        });
-                                    }
-                                })
-                                .catch(res => {
-                                    t.$message({
-                                        showClose: true,
-                                        message: '服务器异常',
-                                        type: 'error'
-                                    });
-                                })
-                        } else {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'error'
-                            });
-                        }
+                    .catch(res => {
+                        t.$message({
+                            showClose: true,
+                            message: '服务器异常',
+                            type: 'error'
+                        });
                     })
             },
             submitForm(formName) {
@@ -320,18 +332,18 @@
                             category: t.productCategory.category,
                         })
                             .then(res => {
-                                if (res.data) {
+                                if (res.data.bl) {
                                     t.initProductCategory();
                                     t.updateShow = false;
                                     this.$message({
                                         showClose: true,
-                                        message: '更新成功',
+                                        message: res.data.message,
                                         type: 'success'
                                     });
                                 } else {
                                     this.$message({
                                         showClose: true,
-                                        message: '更新失败，请检查用品id',
+                                        message: res.data.message,
                                         type: 'error'
                                     });
                                 }
@@ -358,19 +370,19 @@
                             category: t.productCategory.category,
                         })
                             .then(res => {
-                                if (res.data) {
+                                if (res.data.bl) {
                                     t.initProductCategory();
                                     t.getTotal();
                                     t.addShow = false;
                                     this.$message({
                                         showClose: true,
-                                        message: '添加成功',
+                                        message: res.data.message,
                                         type: 'success'
                                     });
                                 } else {
                                     this.$message({
                                         showClose: true,
-                                        message: '更新失败，请检查用品id',
+                                        message: res.data.message,
                                         type: 'error'
                                     });
                                 }

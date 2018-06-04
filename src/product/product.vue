@@ -4,7 +4,8 @@
             <el-col :offset="4" :span="10" class="search">
                 <el-autocomplete @select="handleSelect" v-model="search" :select-when-unmatched="true" value-key="name" :fetch-suggestions="querySearch"
                     prefix-icon="el-icon-search" placeholder="请输入商品名称" clearable>
-                    <el-select class="wid" :clearable="true" :remote="true" @change="categoryChange" @focus="getCategorys" v-model="category.id" slot="prepend" placeholder="职位选择">
+                    <el-select class="wid" :clearable="true" :remote="true" @change="categoryChange" @focus="getCategorys" v-model="category.id"
+                        slot="prepend" placeholder="职位选择">
                         <el-option v-for="item in categorys" :key="item.id" :label="item.category" :value="item.id"></el-option>
                     </el-select>
                     <template slot="append">
@@ -13,7 +14,7 @@
                 </el-autocomplete>
             </el-col>
             <el-col :offset="6" :span="4" class="add">
-                <el-button @click="addProduct" type="primary" icon="el-icon-circle-plus">用品采购</el-button>
+                <el-button v-if="getAdd()" @click="addProduct" type="primary" icon="el-icon-circle-plus">用品采购</el-button>
             </el-col>
         </el-row>
         <el-row>
@@ -31,9 +32,9 @@
                 <el-table-column fixed="right" label="操作">
                     <template slot-scope="Product">
                         <el-button-group>
-                            <el-button size="small" @click="showProduct(Product.row)" icon="el-icon-search"></el-button>
-                            <el-button size="small" @click="updateProduct(Product.row)" type="primary" icon="el-icon-edit"></el-button>
-                            <el-button size="small" @click="deleteProduct(Product)" type="danger" icon="el-icon-delete"></el-button>
+                            <el-button v-if="select" size="small" @click="showProduct(Product.row)" icon="el-icon-search"></el-button>
+                            <el-button v-if="getUpdate()" size="small" @click="updateProduct(Product.row)" type="primary" icon="el-icon-edit"></el-button>
+                            <el-button v-if="getDelete()" size="small" @click="deleteProduct(Product)" type="danger" icon="el-icon-delete"></el-button>
                         </el-button-group>
                     </template>
                 </el-table-column>
@@ -85,10 +86,13 @@
                 </el-form-item>
             </el-form>
         </el-dialog>
-        <el-dialog title="添加用品" :visible.sync="addShow" :center="true">
+        <el-dialog title="采购用品" :visible.sync="addShow" :center="true">
             <el-form :model="product" status-icon :rules="rules" ref="product" label-width="100px">
                 <el-form-item label="用品名称" prop="name">
-                    <el-input v-model="product.name"></el-input>
+                    <el-select @change="showPro" v-model="product.name" default-first-option filterable="" allow-create="" n placeholder="请选择用品名称">
+                        <el-option v-for="item in productNames" :label="item.name" :value="item.id">
+                        </el-option>
+                    </el-select>
                 </el-form-item>
                 <el-form-item label="用品类别">
                     <el-select :clearable="true" :remote="true" @focus="getCategorys" v-model="product.category.id" placeholder="请选择用品类别">
@@ -99,7 +103,7 @@
                     <el-input v-model="product.price"></el-input>
                 </el-form-item>
                 <el-form-item label="用品库存" prop="num">
-                    <el-input v-model="product.num"></el-input>
+                    <el-input-number v-model="product.num" label="用品库存"></el-input-number>
                 </el-form-item>
                 <el-form-item>
                     <el-button type="primary" @click="addSubmitForm('product')">添加</el-button>
@@ -118,6 +122,12 @@
             return {
                 tableData: [],
                 pageSizes: [5, 10, 15, 20],
+                add: false,
+                update: false,
+                select: false,
+                deletes: false,
+                authoritys: [],
+                emps: '',
                 total: 1,
                 ctotal: 1,
                 search: '',
@@ -137,6 +147,7 @@
                         category: ''
                     }
                 },
+                productNames: {},
                 category: {
                     id: ''
                 },
@@ -144,6 +155,9 @@
             }
         },
         created() {
+            this.getAuthoritys();
+            this.getEmp();
+            this.getProducts();
             this.initProduct();
             this.getTotal();
             this.getCtotal();
@@ -160,6 +174,66 @@
                         t.load = false;
                     })
                     .catch(error => console.log(error));
+            },
+            showPro: function (test) {
+                this.productNames.forEach(pro => {
+                    if (pro.id == test) {
+                        this.product = pro;
+                    }
+                })
+            },
+            getProducts: function () {
+                this.axios.get('/zteoa/product/queryAll')
+                .then(res => {
+                    this.productNames = res.data;
+                })
+            },
+            getEmp: function () {
+                let t = this;
+                this.axios.get("/zteoa/emp/getEmp")
+                    .then(res => {
+                        t.emps = res.data;
+                    })
+            },
+            getUpdate: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.update;
+            },
+            getDelete: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.deletes;
+            },
+            getAdd: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.add;
+            },
+            getState: function () {
+                let t = this;
+                this.authoritys.forEach(authority => {
+                    if (authority.type == 1) {
+                        t.select = authority.authority;
+                    } else if (authority.type == 2) {
+                        t.deletes = authority.authority;
+                    } else if (authority.type == 3) {
+                        t.update = authority.authority;
+                    } else {
+                        t.add = authority.authority;
+                    }
+                });
+            },
+            getAuthoritys: function () {
+                let t = this;
+                this.axios.get("/zteoa/product/getAuthoritys")
+                    .then(res => {
+                        t.authoritys = res.data;
+                        this.getState();
+                    })
             },
             categoryChange: function () {
                 let t = this;
@@ -277,34 +351,18 @@
             },
             addProduct: function () {
                 let t = this;
-                this.axios.get('/zteoa/product/isAuthority')
-                    .then(res => {
-                        if (res.data.bl) {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'success'
-                            });
-                            t.getCategorys();
-                            t.product = {
-                                id: '',
-                                name: '',
-                                price: '',
-                                num: '',
-                                category: {
-                                    id: '',
-                                    category: ''
-                                }
-                            };
-                            t.addShow = true;
-                        } else {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'error'
-                            });
-                        }
-                    })
+                t.getCategorys();
+                t.product = {
+                    id: '',
+                    name: '',
+                    price: '',
+                    num: '',
+                    category: {
+                        id: '',
+                        category: ''
+                    }
+                };
+                t.addShow = true;
             },
             showProduct: function (product) {
                 this.product = product;
@@ -312,7 +370,17 @@
             },
             updateProduct: function (product) {
                 let t = this;
-                this.axios.get('/zteoa/product/isAuthority')
+                t.getCategorys();
+                this.product = product;
+                t.updateShow = true;
+            },
+            deleteProduct: function (product) {
+                let t = this;
+                t.axios.get('/zteoa/product/delete', {
+                    params: {
+                        id: product.row.id
+                    }
+                })
                     .then(res => {
                         if (res.data.bl) {
                             t.$message({
@@ -320,9 +388,9 @@
                                 message: res.data.message,
                                 type: 'success'
                             });
-                            t.getCategorys();
-                            this.product = product;
-                            t.updateShow = true;
+                            this.initProduct();
+                            this.getTotal();
+                            this.getCtotal();
                         } else {
                             t.$message({
                                 showClose: true,
@@ -331,49 +399,12 @@
                             });
                         }
                     })
-            },
-            deleteProduct: function (product) {
-                let t = this;
-                this.axios.get('/zteoa/product/isAuthority')
-                    .then(res => {
-                        if (res.data.bl) {
-                            t.axios.get('/zteoa/product/delete', {
-                                params: {
-                                    id: product.row.id
-                                }
-                            })
-                                .then(res => {
-                                    if (res.data) {
-                                        t.$message({
-                                            showClose: true,
-                                            message: '删除成功',
-                                            type: 'success'
-                                        });
-                                        t.total--;
-                                        t.ctotal--;
-                                        t.tableData.splice(product.$index, 1);
-                                    } else {
-                                        t.$message({
-                                            showClose: true,
-                                            message: '服务器异常',
-                                            type: 'error'
-                                        });
-                                    }
-                                })
-                                .catch(res => {
-                                    t.$message({
-                                        showClose: true,
-                                        message: '服务器异常',
-                                        type: 'error'
-                                    });
-                                })
-                        } else {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'error'
-                            });
-                        }
+                    .catch(res => {
+                        t.$message({
+                            showClose: true,
+                            message: '服务器异常',
+                            type: 'error'
+                        });
                     })
             },
             submitForm(formName) {
@@ -388,18 +419,18 @@
                             categoryId: t.product.category.id
                         })
                             .then(res => {
-                                if (res.data) {
+                                if (res.data.bl) {
                                     t.initProduct();
                                     t.updateShow = false;
                                     this.$message({
                                         showClose: true,
-                                        message: '更新成功',
+                                        message: res.data.message,
                                         type: 'success'
                                     });
                                 } else {
                                     this.$message({
                                         showClose: true,
-                                        message: '更新失败，请检查用品id',
+                                        message: res.data.message,
                                         type: 'error'
                                     });
                                 }
@@ -423,25 +454,26 @@
                     let t = this;
                     if (valid) {
                         this.axios.post('/zteoa/product/add', {
+                            id: t.product.id,
                             name: t.product.name,
                             price: t.product.price,
                             num: t.product.num,
                             categoryId: t.product.category.id
                         })
                             .then(res => {
-                                if (res.data) {
+                                if (res.data.bl) {
                                     t.initProduct();
                                     t.getTotal();
                                     t.addShow = false;
                                     this.$message({
                                         showClose: true,
-                                        message: '添加成功',
+                                        message: res.data.message,
                                         type: 'success'
                                     });
                                 } else {
                                     this.$message({
                                         showClose: true,
-                                        message: '更新失败，请检查用品id',
+                                        message: res.data.message,
                                         type: 'error'
                                     });
                                 }

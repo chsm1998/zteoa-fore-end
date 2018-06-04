@@ -10,7 +10,7 @@
                 </el-autocomplete>
             </el-col>
             <el-col :offset="6" :span="4" class="add">
-                <el-button @click="addDept" type="primary" icon="el-icon-circle-plus">添加部门</el-button>
+                <el-button v-if="getAdd()" @click="addDept" type="primary" icon="el-icon-circle-plus">添加部门</el-button>
             </el-col>
         </el-row>
         <el-row>
@@ -32,9 +32,9 @@
                 <el-table-column fixed="right" label="操作">
                     <template slot-scope="Dept">
                         <el-button-group>
-                            <el-button size="small" @click="showDept(Dept.row)" icon="el-icon-search"></el-button>
-                            <el-button size="small" @click="updateDept(Dept.row)" type="primary" icon="el-icon-edit"></el-button>
-                            <el-button size="small" @click="deleteDept(Dept)" type="danger" icon="el-icon-delete"></el-button>
+                            <el-button v-if="select" size="small" @click="showDept(Dept.row)" icon="el-icon-search"></el-button>
+                            <el-button v-if="getUpdate()" size="small" @click="updateDept(Dept.row)" type="primary" icon="el-icon-edit"></el-button>
+                            <el-button v-if="getDelete()" size="small" @click="deleteDept(Dept)" type="danger" icon="el-icon-delete"></el-button>
                         </el-button-group>
                     </template>
                 </el-table-column>
@@ -108,6 +108,11 @@
             return {
                 tableData: [],
                 pageSizes: [5, 10, 15, 20],
+                add: false,
+                update: false,
+                select: false,
+                deletes: false,
+                authoritys: [],
                 total: 1,
                 ctotal: 1,
                 search: '',
@@ -117,6 +122,7 @@
                 show: false,
                 updateShow: false,
                 addShow: false,
+                emps: '',
                 dept: {
                     id: '',
                     name: '',
@@ -129,6 +135,8 @@
             }
         },
         created() {
+            this.getAuthoritys();
+            this.getEmp();
             this.initDept();
             this.getTotal();
             this.getCtotal();
@@ -145,6 +153,54 @@
                         t.load = false;
                     })
                     .catch(error => console.log(error));
+            },
+            getEmp: function () {
+                let t = this;
+                this.axios.get("/zteoa/emp/getEmp")
+                    .then(res => {
+                        t.emps = res.data;
+                    })
+            },
+            getUpdate: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.update;
+            },
+            getDelete: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.deletes;
+            },
+            getAdd: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.add;
+            },
+            getState: function () {
+                let t = this;
+                this.authoritys.forEach(authority => {
+                    if (authority.type == 1) {
+                        t.select = authority.authority;
+                    } else if (authority.type == 2) {
+                        t.deletes = authority.authority;
+                    } else if (authority.type == 3) {
+                        t.update = authority.authority;
+                    } else {
+                        t.add = authority.authority;
+                    }
+                });
+                console.log(t.select, t.add, t.update, t.deletes)
+            },
+            getAuthoritys: function () {
+                let t = this;
+                this.axios.get("/zteoa/dept/getAuthoritys")
+                    .then(res => {
+                        t.authoritys = res.data;
+                        this.getState();
+                    })
             },
             getTime: function (time) {
                 let date = new Date(time);
@@ -236,24 +292,8 @@
             },
             addDept: function () {
                 let t = this;
-                this.axios('/zteoa/dept/isAuthority')
-                    .then(res => {
-                        if (res.data.bl) {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'success'
-                            });
-                            this.dept.name = '';
-                            this.addShow = true;
-                        } else {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'error'
-                            });
-                        }
-                    })
+                this.dept.name = '';
+                this.addShow = true;
             },
             showDept: function (dept) {
                 this.dept = dept;
@@ -261,67 +301,40 @@
             },
             updateDept: function (dept) {
                 let t = this;
-                this.axios('/zteoa/dept/isAuthority')
+                this.dept = dept;
+                this.updateShow = true;
+            },
+            deleteDept: function (dept) {
+                let t = this;
+                this.axios.get('/zteoa/dept/delete', {
+                    params: {
+                        id: dept.row.id
+                    }
+                })
                     .then(res => {
                         if (res.data.bl) {
-                            t.$message({
+                            this.$message({
                                 showClose: true,
                                 message: res.data.message,
                                 type: 'success'
                             });
-                            this.dept = dept;
-                            this.updateShow = true;
+                            this.initDept();
+                            this.getTotal();
+                            this.getCtotal();
                         } else {
-                            t.$message({
+                            this.$message({
                                 showClose: true,
                                 message: res.data.message,
                                 type: 'error'
                             });
                         }
                     })
-            },
-            deleteDept: function (dept) {
-                let t = this;
-                this.axios('/zteoa/dept/isAuthority')
-                    .then(res => {
-                        if (res.data.bl) {
-                            this.axios.get('/zteoa/dept/delete', {
-                                params: {
-                                    id: dept.row.id
-                                }
-                            })
-                                .then(res => {
-                                    if (res.data.bl) {
-                                        this.$message({
-                                            showClose: true,
-                                            message: res.data.message,
-                                            type: 'success'
-                                        });
-                                        t.total--;
-                                        t.ctotal--;
-                                        t.tableData.splice(dept.$index, 1);
-                                    } else {
-                                        this.$message({
-                                            showClose: true,
-                                            message: res.data.message,
-                                            type: 'error'
-                                        });
-                                    }
-                                })
-                                .catch(res => {
-                                    this.$message({
-                                        showClose: true,
-                                        message: '服务器异常',
-                                        type: 'error'
-                                    });
-                                })
-                        } else {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'error'
-                            });
-                        }
+                    .catch(res => {
+                        this.$message({
+                            showClose: true,
+                            message: '服务器异常',
+                            type: 'error'
+                        });
                     })
             },
             submitForm(formName) {
@@ -333,18 +346,18 @@
                             name: t.dept.name,
                         })
                             .then(res => {
-                                if (res.data) {
+                                if (res.data.bl) {
                                     t.initDept();
                                     t.updateShow = false;
                                     this.$message({
                                         showClose: true,
-                                        message: '更新成功',
+                                        message: res.data.message,
                                         type: 'success'
                                     });
                                 } else {
                                     this.$message({
                                         showClose: true,
-                                        message: '更新失败，请检查部门id',
+                                        message: res.data.message,
                                         type: 'error'
                                     });
                                 }
@@ -371,19 +384,19 @@
                             name: t.dept.name,
                         })
                             .then(res => {
-                                if (res.data) {
+                                if (res.data.bl) {
                                     t.initDept();
                                     t.getTotal();
                                     t.addShow = false;
                                     this.$message({
                                         showClose: true,
-                                        message: '更新成功',
+                                        message: res.data.message,
                                         type: 'success'
                                     });
                                 } else {
                                     this.$message({
                                         showClose: true,
-                                        message: '更新失败，请检查部门id',
+                                        message: res.data.message,
                                         type: 'error'
                                     });
                                 }

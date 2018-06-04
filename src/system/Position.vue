@@ -10,7 +10,7 @@
                 </el-autocomplete>
             </el-col>
             <el-col :offset="6" :span="4" class="add">
-                <el-button @click="addPosition" type="primary" icon="el-icon-circle-plus">添加职位</el-button>
+                <el-button v-if="getAdd()" @click="addPosition" type="primary" icon="el-icon-circle-plus">添加职位</el-button>
             </el-col>
         </el-row>
         <el-row>
@@ -32,9 +32,9 @@
                 <el-table-column fixed="right" label="操作">
                     <template slot-scope="Position">
                         <el-button-group>
-                            <el-button size="small" @click="showPosition(Position.row)" icon="el-icon-search"></el-button>
-                            <el-button size="small" @click="updatePosition(Position.row)" type="primary" icon="el-icon-edit"></el-button>
-                            <el-button size="small" @click="deletePosition(Position)" type="danger" icon="el-icon-delete"></el-button>
+                            <el-button v-if="select" size="small" @click="showPosition(Position.row)" icon="el-icon-search"></el-button>
+                            <el-button v-if="getUpdate()" size="small" @click="updatePosition(Position.row)" type="primary" icon="el-icon-edit"></el-button>
+                            <el-button v-if="getDelete()" size="small" @click="deletePosition(Position)" type="danger" icon="el-icon-delete"></el-button>
                         </el-button-group>
                     </template>
                 </el-table-column>
@@ -63,6 +63,11 @@
         </el-dialog>
         <el-dialog title="修改职位信息" :visible.sync="updateShow" :center="true">
             <el-form :model="position" status-icon :rules="rules" ref="position" label-width="100px">
+                <el-form-item label="所属部门" prop="dept.id">
+                    <el-select v-model="position.bid" filterable placeholder="请选择所在部门">
+                        <el-option v-for="item in depts" :key="item.id" :label="item.name" :value="item.id"></el-option>
+                    </el-select>
+                </el-form-item>
                 <el-form-item label="职位名称" prop="name">
                     <el-input v-model="position.name"></el-input>
                 </el-form-item>
@@ -74,6 +79,11 @@
         </el-dialog>
         <el-dialog title="添加职位" :visible.sync="addShow" :center="true">
             <el-form :model="position" status-icon :rules="rules" ref="position" label-width="100px">
+                <el-form-item label="所属部门" prop="dept.id">
+                    <el-select v-model="position.bid" filterable placeholder="请选择所在部门">
+                        <el-option v-for="item in depts" :key="item.id" :label="item.name" :value="item.id"></el-option>
+                    </el-select>
+                </el-form-item>
                 <el-form-item label="职位名称" prop="name">
                     <el-input v-model="position.name"></el-input>
                 </el-form-item>
@@ -109,6 +119,12 @@
             return {
                 tableData: [],
                 pageSizes: [5, 10, 15, 20],
+                depts: [],
+                add: false,
+                update: false,
+                select: false,
+                deletes: false,
+                authoritys: [],
                 total: 1,
                 ctotal: 1,
                 search: '',
@@ -118,9 +134,11 @@
                 show: false,
                 updateShow: false,
                 addShow: false,
+                emps: '',
                 position: {
                     id: '',
                     name: '',
+                    bid: '',
                     createTime: '',
                     modifyTime: ''
                 },
@@ -130,6 +148,8 @@
             }
         },
         created() {
+            this.getAuthoritys();
+            this.getEmp();
             this.initPosition();
             this.getTotal();
             this.getCtotal();
@@ -146,6 +166,62 @@
                         t.load = false;
                     })
                     .catch(error => console.log(error));
+            },
+            getDepts: function () {
+                let t = this;
+                this.axios.get('/zteoa/dept/queryAll')
+                    .then(res => {
+                        t.depts = res.data;
+                        console.log(t.depts);
+                    })
+                    .catch(res => console.log(res))
+            },
+            getEmp: function () {
+                let t = this;
+                this.axios.get("/zteoa/emp/getEmp")
+                    .then(res => {
+                        t.emps = res.data;
+                    })
+            },
+            getUpdate: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.update;
+            },
+            getDelete: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.deletes;
+            },
+            getAdd: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.add;
+            },
+            getState: function () {
+                let t = this;
+                this.authoritys.forEach(authority => {
+                    if (authority.type == 1) {
+                        t.select = authority.authority;
+                    } else if (authority.type == 2) {
+                        t.deletes = authority.authority;
+                    } else if (authority.type == 3) {
+                        t.update = authority.authority;
+                    } else {
+                        t.add = authority.authority;
+                    }
+                });
+            },
+            getAuthoritys: function () {
+                let t = this;
+                this.axios.get("/zteoa/position/getAuthoritys")
+                    .then(res => {
+                        t.authoritys = res.data;
+                        this.getState();
+                    })
             },
             getTime: function (time) {
                 let date = new Date(time);
@@ -236,33 +312,26 @@
                     .catch(error => console.log(error));
             },
             addPosition: function () {
-                let t = this;
-                this.axios.get('/zteoa/position/isAuthority')
-                    .then(res => {
-                        if (res.data.bl) {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'success'
-                            });
-                            this.position.name = '';
-                            t.addShow = true;
-                        } else {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'error'
-                            });
-                        }
-                    })
+                this.getDepts();
+                this.position.name = '';
+                this.addShow = true;
             },
             showPosition: function (position) {
                 this.position = position;
                 this.show = true;
             },
             updatePosition: function (position) {
+                this.getDepts();
+                this.position = position;
+                this.updateShow = true;
+            },
+            deletePosition: function (position) {
                 let t = this;
-                this.axios.get('/zteoa/position/isAuthority')
+                t.axios.get('/zteoa/position/delete', {
+                    params: {
+                        id: position.row.id
+                    }
+                })
                     .then(res => {
                         if (res.data.bl) {
                             t.$message({
@@ -270,8 +339,9 @@
                                 message: res.data.message,
                                 type: 'success'
                             });
-                            this.position = position;
-                            t.updateShow = true;
+                            this.initPosition();
+                            this.getTotal();
+                            this.getCtotal();
                         } else {
                             t.$message({
                                 showClose: true,
@@ -280,49 +350,12 @@
                             });
                         }
                     })
-            },
-            deletePosition: function (position) {
-                let t = this;
-                this.axios.get('/zteoa/position/isAuthority')
-                    .then(res => {
-                        if (res.data.bl) {
-                            t.axios.get('/zteoa/position/delete', {
-                                params: {
-                                    id: position.row.id
-                                }
-                            })
-                                .then(res => {
-                                    if (res.data.bl) {
-                                        t.$message({
-                                            showClose: true,
-                                            message: res.data.message,
-                                            type: 'success'
-                                        });
-                                        t.total--;
-                                        t.ctotal--;
-                                        t.tableData.splice(position.$index, 1);
-                                    } else {
-                                        t.$message({
-                                            showClose: true,
-                                            message: res.data.message,
-                                            type: 'error'
-                                        });
-                                    }
-                                })
-                                .catch(res => {
-                                    t.$message({
-                                        showClose: true,
-                                        message: '服务器异常',
-                                        type: 'error'
-                                    });
-                                })
-                        } else {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'error'
-                            });
-                        }
+                    .catch(res => {
+                        t.$message({
+                            showClose: true,
+                            message: '服务器异常',
+                            type: 'error'
+                        });
                     })
             },
             submitForm(formName) {
@@ -331,21 +364,22 @@
                     if (valid) {
                         this.axios.post('/zteoa/position/update', {
                             id: t.position.id,
+                            bid: t.position.bid,
                             name: t.position.name,
                         })
                             .then(res => {
-                                if (res.data) {
+                                if (res.data.bl) {
                                     t.initPosition();
                                     t.updateShow = false;
                                     this.$message({
                                         showClose: true,
-                                        message: '更新成功',
+                                        message: res.data.message,
                                         type: 'success'
                                     });
                                 } else {
                                     this.$message({
                                         showClose: true,
-                                        message: '更新失败，请检查职位id',
+                                        message: res.data.message,
                                         type: 'error'
                                     });
                                 }
@@ -369,22 +403,23 @@
                     let t = this;
                     if (valid) {
                         this.axios.post('/zteoa/position/add', {
+                            bid: t.position.bid,
                             name: t.position.name,
                         })
                             .then(res => {
-                                if (res.data) {
+                                if (res.data.bl) {
                                     t.initPosition();
                                     t.getTotal();
                                     t.addShow = false;
                                     this.$message({
                                         showClose: true,
-                                        message: '添加成功',
+                                        message: res.data.message,
                                         type: 'success'
                                     });
                                 } else {
                                     this.$message({
                                         showClose: true,
-                                        message: '更新失败，请检查职位id',
+                                        message: res.data.message,
                                         type: 'error'
                                     });
                                 }

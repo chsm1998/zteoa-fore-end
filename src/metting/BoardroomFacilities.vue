@@ -2,7 +2,7 @@
     <div>
         <el-row>
             <el-col :offset="6" :span="8" class="search">
-                <el-autocomplete @select="handleSelect" v-model="search" :select-when-unmatched="true" value-key="name" :fetch-suggestions="querySearch"
+                <el-autocomplete @select="handleSelect" v-model="search" :select-when-unmatched="true" value-key="zProductName" :fetch-suggestions="querySearch"
                     prefix-icon="el-icon-search" placeholder="请输入会议室设施" clearable>
                     <template slot="append">
                         <el-button @click="handleSelect" icon="el-icon-search">搜索</el-button>
@@ -10,7 +10,7 @@
                 </el-autocomplete>
             </el-col>
             <el-col :offset="6" :span="4" class="add">
-                <el-button @click="addBoardroomFacilities" type="primary" icon="el-icon-circle-plus">申请会议设施</el-button>
+                <!-- <el-button @click="addBoardroomFacilities" type="primary" icon="el-icon-circle-plus">申请会议设施</el-button> -->
             </el-col>
         </el-row>
         <el-row>
@@ -26,9 +26,9 @@
                 <el-table-column fixed="right" label="操作">
                     <template slot-scope="BoardroomFacilities">
                         <el-button-group>
-                            <el-button size="small" @click="showBoardroomFacilities(BoardroomFacilities.row)" icon="el-icon-search"></el-button>
-                            <el-button size="small" @click="updateBoardroomFacilities(BoardroomFacilities.row)" type="primary" icon="el-icon-edit"></el-button>
-                            <el-button size="small" @click="deleteBoardroomFacilities(BoardroomFacilities)" type="danger" icon="el-icon-delete"></el-button>
+                            <el-button v-if="select" size="small" @click="showBoardroomFacilities(BoardroomFacilities.row)" icon="el-icon-search"></el-button>
+                            <el-button v-if="getUpdate()" size="small" @click="updateBoardroomFacilities(BoardroomFacilities.row)" type="primary" icon="el-icon-edit"></el-button>
+                            <el-button v-if="getDelete()" size="small" @click="deleteBoardroomFacilities(BoardroomFacilities)" type="danger" icon="el-icon-delete"></el-button>
                         </el-button-group>
                     </template>
                 </el-table-column>
@@ -85,6 +85,12 @@
             return {
                 tableData: [],
                 pageSizes: [5, 10, 15, 20],
+                add: false,
+                update: false,
+                select: false,
+                deletes: false,
+                authoritys: [],
+                emps: '',
                 total: 1,
                 ctotal: 1,
                 search: '',
@@ -104,6 +110,8 @@
             }
         },
         created() {
+            this.getAuthoritys();
+            this.getEmp();
             this.initBoardroomFacilities();
             this.getTotal();
             this.getCtotal();
@@ -121,10 +129,57 @@
                     })
                     .catch(error => console.log(error));
             },
+            getEmp: function () {
+                let t = this;
+                this.axios.get("/zteoa/emp/getEmp")
+                    .then(res => {
+                        t.emps = res.data;
+                    })
+            },
+            getUpdate: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.update;
+            },
+            getDelete: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.deletes;
+            },
+            getAdd: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.add;
+            },
+            getState: function () {
+                let t = this;
+                this.authoritys.forEach(authority => {
+                    if (authority.type == 1) {
+                        t.select = authority.authority;
+                    } else if (authority.type == 2) {
+                        t.deletes = authority.authority;
+                    } else if (authority.type == 3) {
+                        t.update = authority.authority;
+                    } else {
+                        t.add = authority.authority;
+                    }
+                });
+            },
+            getAuthoritys: function () {
+                let t = this;
+                this.axios.get("/zteoa/product/getAuthoritys")
+                    .then(res => {
+                        t.authoritys = res.data;
+                        this.getState();
+                    })
+            },
             handleSelect: function (item) {
                 const t = this;
                 this.axios.post('/zteoa/boardroomFacilities/queryList', {
-                    name: t.search,
+                    zProductName: t.search,
                     currPage: 1,
                     pageSize: t.pageSize
                 })
@@ -164,7 +219,7 @@
             getTotal: function () {
                 const t = this;
                 this.axios.post('/zteoa/boardroomFacilities/queryTotal', {
-                    name: t.search
+                    zProductName: t.search
                 })
                     .then(res => {
                         t.total = res.data;
@@ -180,7 +235,7 @@
             getCtotal: function () {
                 const t = this;
                 this.axios.post('/zteoa/boardroomFacilities/queryTotal', {
-                    name: t.search
+                    zProductName: t.search
                 })
                     .then(res => {
                         t.ctotal = res.data;
@@ -196,7 +251,7 @@
             querySearch: function (queryString, cb) {
                 const t = this;
                 this.axios.post('/zteoa/boardroomFacilities/queryList', {
-                    name: t.search,
+                    zProductName: t.search,
                     currPage: 1,
                     pageSize: t.ctotal
                 })
@@ -207,24 +262,8 @@
             },
             addBoardroomFacilities: function () {
                 let t = this;
-                this.axios.get('/zteoa/boardroomFacilities/isAuthority')
-                    .then(res => {
-                        if (res.data.bl) {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'success'
-                            });
-                            this.boardroomFacilities = '';
-                            t.addShow = true;
-                        } else {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'error'
-                            });
-                        }
-                    })
+                this.boardroomFacilities = '';
+                t.addShow = true;
             },
             showBoardroomFacilities: function (boardroomFacilities) {
                 this.boardroomFacilities = boardroomFacilities;
@@ -232,7 +271,16 @@
             },
             updateBoardroomFacilities: function (boardroomFacilities) {
                 let t = this;
-                this.axios.get('/zteoa/boardroomFacilities/isAuthority')
+                this.boardroomFacilities = boardroomFacilities;
+                t.updateShow = true;
+            },
+            deleteBoardroomFacilities: function (boardroomFacilities) {
+                let t = this;
+                t.axios.get('/zteoa/boardroomFacilities/delete', {
+                    params: {
+                        id: boardroomFacilities.row.id
+                    }
+                })
                     .then(res => {
                         if (res.data.bl) {
                             t.$message({
@@ -240,8 +288,9 @@
                                 message: res.data.message,
                                 type: 'success'
                             });
-                            this.boardroomFacilities = boardroomFacilities;
-                            t.updateShow = true;
+                            t.total--;
+                            t.ctotal--;
+                            t.tableData.splice(boardroomFacilities.$index, 1);
                         } else {
                             t.$message({
                                 showClose: true,
@@ -250,49 +299,12 @@
                             });
                         }
                     })
-            },
-            deleteBoardroomFacilities: function (boardroomFacilities) {
-                let t = this;
-                this.axios.get('/zteoa/boardroomFacilities/isAuthority')
-                    .then(res => {
-                        if (res.data.bl) {
-                            t.axios.get('/zteoa/boardroomFacilities/delete', {
-                                params: {
-                                    id: boardroomFacilities.row.id
-                                }
-                            })
-                                .then(res => {
-                                    if (res.data) {
-                                        t.$message({
-                                            showClose: true,
-                                            message: '删除成功',
-                                            type: 'success'
-                                        });
-                                        t.total--;
-                                        t.ctotal--;
-                                        t.tableData.splice(boardroomFacilities.$index, 1);
-                                    } else {
-                                        t.$message({
-                                            showClose: true,
-                                            message: '删除失败',
-                                            type: 'error'
-                                        });
-                                    }
-                                })
-                                .catch(res => {
-                                    t.$message({
-                                        showClose: true,
-                                        message: '服务器异常',
-                                        type: 'error'
-                                    });
-                                })
-                        } else {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'error'
-                            });
-                        }
+                    .catch(res => {
+                        t.$message({
+                            showClose: true,
+                            message: '服务器异常',
+                            type: 'error'
+                        });
                     })
             },
             submitForm(formName) {
@@ -306,18 +318,18 @@
                             use: t.boardroomFacilities.use
                         })
                             .then(res => {
-                                if (res.data) {
+                                if (res.data.bl) {
                                     t.initBoardroomFacilities();
                                     t.updateShow = false;
                                     this.$message({
                                         showClose: true,
-                                        message: '更新成功',
+                                        message: res.data.message,
                                         type: 'success'
                                     });
                                 } else {
                                     this.$message({
                                         showClose: true,
-                                        message: '更新失败，请检查会议室id',
+                                        message: res.data.message,
                                         type: 'error'
                                     });
                                 }

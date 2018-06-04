@@ -6,7 +6,7 @@
                     prefix-icon="el-icon-search" placeholder="请输入员工姓名" clearable>
                     <template slot-scope="{ item }">
                         <span>{{ item.name }}</span>
-                        <span>{{ item.dept.name }}</span>
+                        <span v-if="item.dept != null">{{ item.dept.name }}</span>
                     </template>
                     <template slot="append">
                         <el-button @click="handleSelect" icon="el-icon-search">搜索</el-button>
@@ -14,7 +14,7 @@
                 </el-autocomplete>
             </el-col>
             <el-col :offset="6" :span="4" class="add">
-                <el-button @click="empAdd" type="primary" icon="el-icon-circle-plus">添加员工</el-button>
+                <el-button v-if="getAdd()" @click="empAdd" type="primary" icon="el-icon-circle-plus">添加员工</el-button>
             </el-col>
         </el-row>
         <el-row>
@@ -27,16 +27,22 @@
                 </el-table-column>
                 <el-table-column align="center" prop="phone" label="手机">
                 </el-table-column>
-                <el-table-column align="center" prop="dept.name" label="部门">
+                <el-table-column align="center" label="部门">
+                    <template slot-scope="scope">
+                        <span>{{ !scope.row.dept ? '无部门' : scope.row.dept.name }}</span>
+                    </template>
                 </el-table-column>
-                <el-table-column align="center" prop="position.name" label="职位">
+                <el-table-column align="center" label="职位">
+                    <template slot-scope="scope">
+                        <span>{{ !scope.row.position ? '无职位' : scope.row.position.name }}</span>
+                    </template>
                 </el-table-column>
-                <el-table-column fixed="right" label="操作">
+                <el-table-column fixed="right" width="170" label="操作">
                     <template slot-scope="emp">
                         <el-button-group>
-                            <el-button size="small" @click="showEmp(emp.row)" icon="el-icon-search"></el-button>
-                            <el-button size="small" @click="updateEmp(emp.row)" type="primary" icon="el-icon-edit"></el-button>
-                            <el-button size="small" @click="deleteEmp(emp)" type="danger" icon="el-icon-delete"></el-button>
+                            <el-button v-if="select" size="small" @click="showEmp(emp.row)" icon="el-icon-search"></el-button>
+                            <el-button v-if="getUpdate(emp)" size="small" @click="updateEmp(emp.row)" type="primary" icon="el-icon-edit"></el-button>
+                            <el-button v-if="getDelete(emp)" size="small" @click="deleteEmp(emp)" type="danger" icon="el-icon-delete"></el-button>
                         </el-button-group>
                     </template>
                 </el-table-column>
@@ -62,10 +68,10 @@
                     <span>{{ emp.phone }}</span>
                 </el-form-item>
                 <el-form-item label="所在部门">
-                    <span>{{ emp.dept.name }}</span>
+                    <span>{{ !emp.dept ? '无部门' : emp.dept.name }}</span>
                 </el-form-item>
                 <el-form-item label="在职职位">
-                    <span>{{ emp.position.name }}</span>
+                    <span>{{ !emp.position ? '无职位' : emp.position.name }}</span>
                 </el-form-item>
             </el-form>
         </el-dialog>
@@ -81,13 +87,13 @@
                     <el-input type="tel" v-model="emp.phone"></el-input>
                 </el-form-item>
                 <el-form-item label="所在部门" prop="dept.id">
-                    <el-select v-model="emp.dept.id" filterable placeholder="请选择所在部门">
+                    <el-select @change="deptChange" v-model="emp.dept.id" filterable placeholder="请选择所在部门">
                         <el-option v-for="item in depts" :key="item.id" :label="item.name" :value="item.id"></el-option>
                     </el-select>
                 </el-form-item>
                 <el-form-item label="当前职位" prop="position.id">
                     <el-select v-model="emp.position.id" filterable placeholder="请选择当前职位">
-                        <el-option v-for="item in positions" :key="item.id" :label="item.name" :value="item.id"></el-option>
+                        <el-option v-for="item in positions" v-if="isPosition(item)" :key="item.id" :label="item.name" :value="item.id"></el-option>
                     </el-select>
                 </el-form-item>
                 <el-form-item>
@@ -122,6 +128,12 @@
                 search: '',
                 currPage: 1,
                 pageSize: 5,
+                add: false,
+                update: false,
+                select: false,
+                delete: false,
+                authoritys: [],
+                emps: '',
                 emp: {
                     name: '',
                     id: '',
@@ -155,6 +167,8 @@
             }
         },
         created() {
+            this.getAuthoritys();
+            this.getEmp();
             this.setNewsApi();
             this.getTotal();
             this.getCtotal();
@@ -171,6 +185,53 @@
                         t.load = false;
                     })
                     .catch(error => console.log(error));
+            },
+            isPosition: function (position) {
+                if (position.bid == null) {
+                    return true;
+                }
+                return position.bid == this.emp.dept.id;
+            },
+            deptChange: function () {
+                this.emp.position.id = '';
+            },
+            getUpdate: function (emp) {
+                if (this.emps.position == null && emp.row.position != null) {
+                    return true;
+                }
+                if (emp.row.position == null) {
+                    return false;
+                }
+                return this.update && emp.row.position.rank < this.emps.position.rank;
+            },
+            getDelete: function (emp) {
+                if (this.emps.position == null  && emp.row.position != null) {
+                    return true;
+                }
+                if (emp.row.position == null) {
+                    return false;
+                }
+                return this.delete && emp.row.position.rank < this.emps.position.rank;
+            },
+            getAdd: function () {
+                if (this.emps.position == null) {
+                    return true;
+                }
+                return this.add;
+            },
+            getState: function () {
+                let t = this;
+                this.authoritys.forEach(authority => {
+                    if (authority.type == 1) {
+                        t.select = authority.authority;
+                    } else if (authority.type == 2) {
+                        t.delete = authority.authority;
+                    } else if (authority.type == 3) {
+                        t.update = authority.authority;
+                    } else {
+                        t.add = authority.authority;
+                    }
+                });
             },
             handleSelect: function (item) {
                 const t = this;
@@ -244,6 +305,21 @@
                         });
                     })
             },
+            getAuthoritys: function () {
+                let t = this;
+                this.axios.get("/zteoa/emp/getAuthoritys")
+                    .then(res => {
+                        t.authoritys = res.data;
+                        this.getState();
+                    })
+            },
+            getEmp: function () {
+                let t = this;
+                this.axios.get("/zteoa/emp/getEmp")
+                    .then(res => {
+                        t.emps = res.data;
+                    })
+            },
             querySearch: function (queryString, cb) {
                 const t = this;
                 this.axios.post('/zteoa/emp/queryList', {
@@ -258,111 +334,55 @@
             },
             empAdd: function () {
                 let t = this;
-                this.axios.get('/zteoa/emp/isAuthority')
-                    .then(res => {
-                        if (res.data.bl) {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'success'
-                            });
-                            t.$router.push('/empAdd');
-                        } else {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'error'
-                            });
-                        }
-                    })
+                t.$router.push('/empAdd');
             },
             showEmp: function (emp) {
                 this.emp = emp;
+                if (emp.position == null) {
+                    emp.position = ''
+                }
+                if (emp.dept == null) {
+                    emp.dept = ''
+                }
                 this.show = true;
             },
             updateEmp: function (emp) {
+                this.getDepts();
+                this.getPositions();
+                this.emp = emp;
+                this.updateShow = true;
+            },
+            deleteEmp: function (emp) {
                 let t = this;
-                this.axios.post('/zteoa/emp/isAuthority', {
-                    id: emp.id,
-                    name: emp.name,
-                    username: emp.username,
-                    password: emp.password,
-                    address: emp.address,
-                    phone: emp.phone,
-                    pid: emp.position.id,
-                    did: emp.dept.id
+                this.axios.get('/zteoa/emp/delete', {
+                    params: {
+                        id: emp.row.id
+                    }
                 })
                     .then(res => {
                         if (res.data.bl) {
-                            t.$message({
+                            this.$message({
                                 showClose: true,
                                 message: res.data.message,
                                 type: 'success'
                             });
-                            this.getDepts();
-                            this.getPositions();
-                            this.emp = emp;
-                            this.updateShow = true;
+                            this.setNewsApi();
+                            this.getTotal();
+                            this.getCtotal();
                         } else {
-                            t.$message({
+                            this.$message({
                                 showClose: true,
                                 message: res.data.message,
                                 type: 'error'
                             });
                         }
                     })
-            },
-            deleteEmp: function (emp) {
-                let t = this;
-                this.axios.post('/zteoa/emp/isAuthority', {
-                    id: emp.row.id,
-                    name: emp.row.name,
-                    username: emp.row.username,
-                    password: emp.row.password,
-                    address: emp.row.address,
-                    phone: emp.row.phone,
-                    pid: emp.row.position.id,
-                    did: emp.row.dept.id
-                })
-                    .then(res => {
-                        if (res.data.bl) {
-                            this.axios.get('/zteoa/emp/delete', {
-                                params: {
-                                    id: emp.row.id
-                                }
-                            })
-                                .then(res => {
-                                    if (res.data) {
-                                        this.$message({
-                                            showClose: true,
-                                            message: '删除成功',
-                                            type: 'success'
-                                        });
-                                        t.total--;
-                                        t.ctotal--;
-                                        t.tableData.splice(emp.$index, 1);
-                                    } else {
-                                        this.$message({
-                                            showClose: true,
-                                            message: '删除失败',
-                                            type: 'error'
-                                        });
-                                    }
-                                })
-                                .catch(res => {
-                                    this.$message({
-                                        showClose: true,
-                                        message: '服务器异常',
-                                        type: 'error'
-                                    });
-                                })
-                        } else {
-                            t.$message({
-                                showClose: true,
-                                message: res.data.message,
-                                type: 'error'
-                            });
-                        }
+                    .catch(res => {
+                        this.$message({
+                            showClose: true,
+                            message: '服务器异常',
+                            type: 'error'
+                        });
                     })
             },
             submitForm(formName) {
@@ -373,7 +393,6 @@
                             id: t.emp.id,
                             name: t.emp.name,
                             username: t.emp.username,
-                            password: t.emp.password,
                             address: t.emp.address,
                             phone: t.emp.phone,
                             pid: t.emp.position.id,

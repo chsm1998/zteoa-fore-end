@@ -8,6 +8,8 @@
                 </el-dropdown-menu>
             </el-dropdown>
             <span>{{ emp.name }}</span>
+            <span v-if="emp.dept != null">所在部门：{{ emp.dept.name }}</span>
+            <span v-if="emp.position != null">所处职位：{{ emp.position.name }}</span>
         </el-header>
         <el-container>
             <el-aside width="200px" style="height: 640px;background-color: rgb(238, 241, 246)">
@@ -68,11 +70,13 @@
                     },
                 },
                 applys: [],
+                products: [],
             }
         },
         created() {
             this.getEmp();
             this.getApply();
+            this.getProducts();
         },
         methods: {
             getEmp: function () {
@@ -90,31 +94,63 @@
                         t.showApply();
                     })
             },
+            getProducts: function () {
+                let t = this;
+                this.axios.get('/zteoa/product/warning')
+                .then(res => {
+                    t.products = res.data;
+                    t.showProduct();
+                })
+            },
+            showProduct: function () {
+                let time = 0;
+                console.log(4, this.products);
+                if (this.products != null) {
+                    console.log(2);
+                    this.products.forEach(product => {
+                        console.log(1);
+                        setTimeout(() => {
+                            this.$notify({
+                                title: '库存告警',
+                                message: '您仓库中的用品' + product.name + "已不足100件，请及时采购！！！",
+                                type: 'warning',
+                                position: 'bottom-right'
+                            })
+                        }, time);
+                        time += 500;
+                    })
+                }
+            },
             showApply: function () {
                 let time = 0;
-                this.applys.forEach(apply => {
-                    if (apply.agree == 2) {
-                        setTimeout(() => {
-                            this.$notify({
-                                title: '会议审核通过',
-                                message: '您申请的会议室' + apply.boardroom.name + "已经通过审核啦！！！",
-                                type: 'success',
-                                position: 'bottom-right'
-                            })
-                        }, time);
-                        time += 500;
-                    } else if (apply.agree == 3) {
-                        setTimeout(() => {
-                            this.$notify({
-                                title: '会议审核未通过',
-                                message: '很遗憾，您申请的会议室' + apply.boardroom.name + "未能通过审核了，您可以再次尝试提交审核信息！",
-                                type: 'error',
-                                position: 'bottom-right'
-                            })
-                        }, time);
-                        time += 500;
-                    }
-                });
+                if (this.applys != null) {
+                    this.applys.forEach(apply => {
+                        if (apply.agree == 2) {
+                            setTimeout(() => {
+                                this.$notify({
+                                    title: '会议审核通过',
+                                    message: '您申请的会议室' + apply.boardroom.name + "已经通过审核啦！！！",
+                                    type: 'success',
+                                    position: 'bottom-right'
+                                })
+                            }, time);
+                            time += 500;
+                        } else if (apply.agree == 3) {
+                            setTimeout(() => {
+                                this.$notify({
+                                    title: '会议审核未通过',
+                                    message: '很遗憾，您申请的会议室' + apply.boardroom.name + "未能通过审核了，您可以再次尝试提交审核信息！",
+                                    type: 'error',
+                                    position: 'bottom-right'
+                                })
+                            }, time);
+                            time += 500;
+                        }
+                    });
+                }
+            },
+            showProducts: function () {
+
             },
             command: function () {
                 this.axios.get('/zteoa/emp/exit')

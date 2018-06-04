@@ -20,13 +20,13 @@
                 <el-input type="tel" v-model="ruleForm.phone"></el-input>
             </el-form-item>
             <el-form-item label="所在部门" prop="dept.id">
-                <el-select v-model="ruleForm.dept.id" filterable placeholder="请选择所在部门">
+                <el-select @change="deptChange" v-model="ruleForm.dept.id" filterable placeholder="请选择所在部门">
                     <el-option v-for="item in depts" :key="item.id" :label="item.name" :value="item.id"></el-option>
                 </el-select>
             </el-form-item>
             <el-form-item label="当前职位" prop="position.id">
                 <el-select v-model="ruleForm.position.id" filterable placeholder="请选择当前职位">
-                    <el-option v-for="item in positions" :key="item.id" :label="item.name" :value="item.id"></el-option>
+                    <el-option v-for="item in positions" v-if="isPosition(item)" :key="item.id" :label="item.name" :value="item.id"></el-option>
                 </el-select>
             </el-form-item>
             <el-form-item>
@@ -126,6 +126,12 @@
                     phone: [
                         { required: true, message: '请输入手机号', trigger: 'blur' },
                         { validator: checkPhone, trigger: 'blur' }
+                    ],
+                    deptId: [
+                        { required: true, message: '请选择部门', trigger: 'blur'}
+                    ],
+                    positionId: [
+                        { required: true, message: '请选择职位', trigger: 'blur' }
                     ]
                 }
             };
@@ -168,6 +174,15 @@
             },
             resetForm(formName) {
                 this.$refs[formName].resetFields();
+            },
+            deptChange: function () {
+                this.ruleForm.position.id = '';
+            },
+            isPosition: function (position) {
+                if (position.bid == null) {
+                    return true;
+                }
+                return position.bid == this.ruleForm.dept.id;
             },
             getDepts: function () {
                 let t = this;
